@@ -375,12 +375,21 @@ begin
 			-- 	obj2_grn<=b"00";
 			-- 	obj2_blu<=b"00";
 			-- end if;
-			if (vcount=(480*(1-unsigned(dataa(11 downto 0))/4095))) then
-				obj2_red<=b"00";
+			-- if (vcount=(480*(1-unsigned(dataa(11 downto 0))/4095))) then
+			-- 	obj2_red<=b"00";
+			-- 	obj2_grn<=b"11";
+			-- 	obj2_blu<=b"00";
+			-- else
+			-- 	obj2_red<=b"00";
+			-- 	obj2_grn<=b"00";
+			-- 	obj2_blu<=b"00";
+			-- end if;
+			if (vcount = to_integer(0.5 + to_integer(unsigned(datab_out(11 downto 0)))/7.8))
+				obj2_red<=b"11";            
 				obj2_grn<=b"11";
-				obj2_blu<=b"00";
-			else
-				obj2_red<=b"00";
+				obj2_blu<=b"11";
+				else
+				obj2_red<=b"00";            
 				obj2_grn<=b"00";
 				obj2_blu<=b"00";
 			end if;

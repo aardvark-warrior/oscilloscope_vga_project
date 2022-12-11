@@ -104,7 +104,6 @@ architecture arch of Oscilliscope is
 	signal ball_y_bot:    unsigned(9 downto 0);
 	signal ball_dx:       std_logic:='1';
 	signal ball_dy:       std_logic:='1';
-    signal datab_out:     std_logic_vector(35 downto 0);
 	
 	--signal 
 	
@@ -341,7 +340,7 @@ begin
     ------------------------------------------------------------------
 	-- Draw grid
 	------------------------------------------------------------------
-    process(clkfx)
+    process(clkfx,obj2_red,obj2_grn,obj2_blu)
     begin
         if rising_edge(clkfx) then
             if (hcount=80) or
@@ -384,11 +383,11 @@ begin
 			-- 	obj2_grn<=b"00";
 			-- 	obj2_blu<=b"00";
 			-- end if;
-			if (vcount = to_integer(0.5 + to_integer(unsigned(datab_out(11 downto 0)))/7.8))
-				obj2_red<=b"11";            
+			if (vcount = to_integer(5 + 10*(unsigned(dataa(11 downto 0)))/78)) then
+				obj2_red<=b"00";            
 				obj2_grn<=b"11";
-				obj2_blu<=b"11";
-				else
+				obj2_blu<=b"00";
+            else
 				obj2_red<=b"00";            
 				obj2_grn<=b"00";
 				obj2_blu<=b"00";

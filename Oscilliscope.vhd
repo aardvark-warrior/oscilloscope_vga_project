@@ -111,10 +111,10 @@ begin
 		clka_i=>clk,wea_i=>wea(0),addra_i=>addra,dataa_i=>(others=>'0'),dataa_o=>dataa, -- port A output to VGA
 		clkb_i=>fclk,web_i=>web(0),addrb_i=>addrb,datab_i=>datab,datab_o=>open          -- port B input from ADC
     );
-	ram1: Oscilliscope_ram port map(
-		clka_i=>clk,wea_i=>wea(1),addra_i=>addra,dataa_i=>(others=>'0'),dataa_o=>dataa,
-		clkb_i=>fclk,web_i=>web(1),addrb_i=>addrb,datab_i=>datab,datab_o=>open
-	);
+	-- ram1: Oscilliscope_ram port map(
+	-- 	clka_i=>clk,wea_i=>wea(1),addra_i=>addra,dataa_i=>(others=>'0'),dataa_o=>dataa,
+	-- 	clkb_i=>fclk,web_i=>web(1),addrb_i=>addrb,datab_i=>datab,datab_o=>open
+	-- );
 	-- ram2: Oscilliscope_ram port map(
 	-- 	clka_i=>clk,wea_i=>wea(2),addra_i=>addra,dataa_i=>(others=>'0'),dataa_o=>dataa,
 	-- 	clkb_i=>fclk,web_i=>web(2),addrb_i=>addrb,datab_i=>datab,datab_o=>open
@@ -155,7 +155,6 @@ begin
 				out31 <= not out31;
 				counter <= b"00000000001";
 			end if;
-
 		end if;
 		
 	end process;	
@@ -313,8 +312,7 @@ begin
                (vcount=160) or
                (vcount=240) or
                (vcount=320) or
-               (vcount=400) or
-               (vcount=480) then  
+               (vcount=400) then  
                 obj1_red<=b"01";
                 obj1_grn<=b"01";
                 obj1_blu<=b"01";
@@ -342,7 +340,7 @@ begin
 			-- 	obj2_grn<=b"00";
 			-- 	obj2_blu<=b"00";
 			-- end if;
-			if (vcount = 525 - 525/3 - to_integer(5 + 10*unsigned(dataa(11 downto 0)))/78) then
+			if (vcount = 400 - to_integer(5 + 10*unsigned(dataa(11 downto 0))*320/4095)/10) then
 				obj2_red<=b"00";            
 				obj2_grn<=b"11";
 				obj2_blu<=b"00";

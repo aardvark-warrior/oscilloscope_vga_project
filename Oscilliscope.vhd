@@ -385,7 +385,7 @@ begin
 			-- 	obj2_grn<=b"00";
 			-- 	obj2_blu<=b"00";
 			-- end if;
-			if (vcount = to_integer(5 + 10*unsigned(datab_out(11 downto 0)))/78) then
+			if (vcount = to_integer(5 + 10*unsigned(dataa(11 downto 0)))/78) then
 				obj2_red<=b"00";            
 				obj2_grn<=b"11";
 				obj2_blu<=b"00";

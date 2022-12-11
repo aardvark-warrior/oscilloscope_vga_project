@@ -117,9 +117,9 @@ begin
 	cmt:  Oscilliscope_cmt port map(clk_i=>clk,clk_o=>fclk);
 	adc:  Oscilliscope_adc port map(clk=>fclk,vaux5_n=>vaux5_n,vaux5_p=>vaux5_p,rdy=>rdy,data=>datab(11 downto 0));
 	
-	ram: Oscilliscope_ram port map(
+	ram0: Oscilliscope_ram port map(
 	   clka_i=>clk,
-	   wea_i=>wea(0), -- 
+	   wea_i=>wea(0),
 	   addra_i=>addra,
 	   dataa_i=>(others=>'0'),
 	   dataa_o=>dataa, -- RAM data -> dataa signal
@@ -129,42 +129,42 @@ begin
 	   datab_i=>datab,
 	   datab_o=>open
    );
---   ram1: Oscilliscope_ram port map(
---	   clka_i=>clk,
---	   wea_i=>'0',
---	   addra_i=>addra,
---	   dataa_i=>(others=>'0'),
---	   dataa_o=>dataa,
---	   clkb_i=>fclk,
---	   web_i=>web,
---	   addrb_i=>addrb,
---	   datab_i=>datab,
---	   datab_o=>open
---   );
---   ram2: Oscilliscope_ram port map(
---	   clka_i=>clk,
---	   wea_i=>'0',
---	   addra_i=>addra,
---	   dataa_i=>(others=>'0'),
---	   dataa_o=>dataa,
---	   clkb_i=>fclk,
---	   web_i=>web,
---	   addrb_i=>addrb,
---	   datab_i=>datab,
---	   datab_o=>open
---   );
---   ram3: Oscilliscope_ram port map(
---	   clka_i=>clk,
---	   wea_i=>'0',
---	   addra_i=>addra,
---	   dataa_i=>(others=>'0'),
---	   dataa_o=>dataa,
---	   clkb_i=>fclk,
---	   web_i=>web,
---	   addrb_i=>addrb,
---	   datab_i=>datab,
---	   datab_o=>open
---   );
+  ram1: Oscilliscope_ram port map(
+	   clka_i=>clk,
+	   wea_i=>wea(1),
+	   addra_i=>addra,
+	   dataa_i=>(others=>'0'),
+	   dataa_o=>dataa,
+	   clkb_i=>fclk,
+	   web_i=>web(1),
+	   addrb_i=>addrb,
+	   datab_i=>datab,
+	   datab_o=>open
+  );
+  ram2: Oscilliscope_ram port map(
+	   clka_i=>clk,
+	   wea_i=>wea(2),
+	   addra_i=>addra,
+	   dataa_i=>(others=>'0'),
+	   dataa_o=>dataa,
+	   clkb_i=>fclk,
+	   web_i=>web(2),
+	   addrb_i=>addrb,
+	   datab_i=>datab,
+	   datab_o=>open
+  );
+  ram3: Oscilliscope_ram port map(
+	   clka_i=>clk,
+	   wea_i=>wea(3),
+	   addra_i=>addra,
+	   dataa_i=>(others=>'0'),
+	   dataa_o=>dataa,
+	   clkb_i=>fclk,
+	   web_i=>web(3),
+	   addrb_i=>addrb,
+	   datab_i=>datab,
+	   datab_o=>open
+  );
    
 	pio31 <= out31;
 	web(0) <= rdy;
@@ -176,7 +176,7 @@ begin
 	--     web_ram3 = '0'
     -- end if;
 
-	process(rdy)
+	process(rdy) -- 
 	begin
 		if rising_edge(rdy) then
 			if (addrb=std_logic_vector(to_unsigned(samples-1,10))) then
@@ -187,7 +187,7 @@ begin
 		end if;
 	end process;
 	
-	process(fclk)
+	process(fclk) -- create square wave
 	begin
 		if rising_edge(fclk) then
 			counter <= counter + to_unsigned(1,11);
@@ -201,7 +201,7 @@ begin
 		
 	end process;
 
-	datab(35 downto 12)<=(others=>'0');
+	--datab(35 downto 12)<=(others=>'0');
 	
 	
 	--CONTINUE WITH VGA DISPLAY SYSTEM--
@@ -367,7 +367,7 @@ begin
                 obj1_grn<=b"00";
                 obj1_blu<=b"00";
             end if;
-			
+			-- Hard code green horizontal line centre of screen
 			-- if (vcount=240) then
 			-- 	obj2_red<=b"00";
 			-- 	obj2_grn<=b"11";

@@ -97,15 +97,6 @@ architecture arch of Oscilliscope is
 	signal screen_grn: std_logic_vector(1 downto 0):=(others=>'0');
 	signal screen_blu: std_logic_vector(1 downto 0):=(others=>'0');
 	
-
-	--signal radius:        unsigned(9 downto 0);	
-	signal ball_x_left:   unsigned(9 downto 0):=to_unsigned(0,10);
-    signal ball_x_right:  unsigned(9 downto 0);
-	signal ball_y_top:    unsigned(9 downto 0):=to_unsigned(0,10);
-	signal ball_y_bot:    unsigned(9 downto 0);
-	signal ball_dx:       std_logic:='1';
-	signal ball_dy:       std_logic:='1';
-	
 	--signal 
 	
 begin
@@ -117,56 +108,25 @@ begin
 	adc:  Oscilliscope_adc port map(clk=>fclk,vaux5_n=>vaux5_n,vaux5_p=>vaux5_p,rdy=>rdy,data=>datab(11 downto 0));
 	
 	ram0: Oscilliscope_ram port map(
-	   clka_i=>clk,
-	   wea_i=>wea(0),
-	   addra_i=>addra,
-	   dataa_i=>(others=>'0'),
-	   dataa_o=>dataa, -- RAM data -> dataa signal
-	   clkb_i=>fclk,
-	   web_i=>web(0),
-	   addrb_i=>addrb,
-	   datab_i=>datab,
-	   datab_o=>open
-   );
---   ram1: Oscilliscope_ram port map(
--- 	   clka_i=>clk,
--- 	   wea_i=>wea(1),
--- 	   addra_i=>addra,
--- 	   dataa_i=>(others=>'0'),
--- 	   dataa_o=>dataa,
--- 	   clkb_i=>fclk,
--- 	   web_i=>web(1),
--- 	   addrb_i=>addrb,
--- 	   datab_i=>datab,
--- 	   datab_o=>open
---   );
---   ram2: Oscilliscope_ram port map(
--- 	   clka_i=>clk,
--- 	   wea_i=>wea(2),
--- 	   addra_i=>addra,
--- 	   dataa_i=>(others=>'0'),
--- 	   dataa_o=>dataa,
--- 	   clkb_i=>fclk,
--- 	   web_i=>web(2),
--- 	   addrb_i=>addrb,
--- 	   datab_i=>datab,
--- 	   datab_o=>open
---   );
---   ram3: Oscilliscope_ram port map(
--- 	   clka_i=>clk,
--- 	   wea_i=>wea(3),
--- 	   addra_i=>addra,
--- 	   dataa_i=>(others=>'0'),
--- 	   dataa_o=>dataa,
--- 	   clkb_i=>fclk,
--- 	   web_i=>web(3),
--- 	   addrb_i=>addrb,
--- 	   datab_i=>datab,
--- 	   datab_o=>open
---   );
+		clka_i=>clk,wea_i=>wea(0),addra_i=>addra,dataa_i=>(others=>'0'),dataa_o=>dataa, -- port A output to VGA
+		clkb_i=>fclk,web_i=>web(0),addrb_i=>addrb,datab_i=>datab,datab_o=>open          -- port B input from ADC
+    );
+	ram1: Oscilliscope_ram port map(
+		clka_i=>clk,wea_i=>wea(1),addra_i=>addra,dataa_i=>(others=>'0'),dataa_o=>dataa,
+		clkb_i=>fclk,web_i=>web(1),addrb_i=>addrb,datab_i=>datab,datab_o=>open
+	);
+	-- ram2: Oscilliscope_ram port map(
+	-- 	clka_i=>clk,wea_i=>wea(2),addra_i=>addra,dataa_i=>(others=>'0'),dataa_o=>dataa,
+	-- 	clkb_i=>fclk,web_i=>web(2),addrb_i=>addrb,datab_i=>datab,datab_o=>open
+	-- );
+	-- ram3: Oscilliscope_ram port map(
+	-- 	clka_i=>clk,wea_i=>wea(3),addra_i=>addra,dataa_i=>(others=>'0'),dataa_o=>dataa,
+	-- 	clkb_i=>fclk,web_i=>web(3),addrb_i=>addrb,datab_i=>datab,datab_o=>open
+	-- );
    
 	pio31 <= out31;
 	web(0) <= rdy;
+
 	wea(0) <= frame;
 	-- if (ramcount = '1') then
 	--     web_ram0 = '0'
@@ -198,10 +158,7 @@ begin
 
 		end if;
 		
-	end process;
-
-	--datab(35 downto 12)<=(others=>'0');
-	
+	end process;	
 	
 	--CONTINUE WITH VGA DISPLAY SYSTEM--
 	tvx<='1';

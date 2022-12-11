@@ -71,7 +71,8 @@ architecture arch of Oscilliscope is
 	signal fclk:    std_logic;
 	signal rdy:  	std_logic;
 	signal out31: 	std_logic;
-	signal web: 	std_logic;
+	signal wea:		std_logic_vector(3 downto 0):=(others=>'0');
+	signal web: 	std_logic_vector(3 downto 0):=(others=>'0');
 	signal counter: unsigned(10 downto 0):= b"00000000001";
 	signal addra: 	std_logic_vector(9 downto 0);
 	signal dataa: 	std_logic_vector(35 downto 0);
@@ -117,12 +118,12 @@ begin
 	
 	ram: Oscilliscope_ram port map(
 	   clka_i=>clk,
-	   wea_i=>'0', -- read mode
+	   wea_i=>wea(0), -- 
 	   addra_i=>addra,
 	   dataa_i=>(others=>'0'),
 	   dataa_o=>dataa, -- RAM data -> dataa signal
 	   clkb_i=>fclk,
-	   web_i=>web,
+	   web_i=>web(0),
 	   addrb_i=>addrb,
 	   datab_i=>datab,
 	   datab_o=>open
@@ -165,7 +166,8 @@ begin
 --   );
    
 	pio31 <= out31;
-	web <= rdy;
+	web(0) <= rdy;
+	wea(0) <= frame;
 	-- if (ramcount = '1') then
 	--     web_ram0 = '0'
     --     web_ram1 = '1'
@@ -383,15 +385,27 @@ begin
 			-- 	obj2_grn<=b"00";
 			-- 	obj2_blu<=b"00";
 			-- end if;
-			if (vcount = to_integer(5 + 10*(unsigned(dataa(11 downto 0)))/78)) then
-				obj2_red<=b"00";            
+			if (vcount = to_integer(0.5 + to_integer(unsigned(datab_out(11 downto 0)))/7.8))
+				obj2_red<=b"11";            
 				obj2_grn<=b"11";
 				obj2_blu<=b"00";
             else
 				obj2_red<=b"00";            
+				obj2_blu<=b"00";
+			else
+				obj2_red<=b"00";
 				obj2_grn<=b"00";
 				obj2_blu<=b"00";
 			end if;
+			-- if (vcount = to_integer(0.5 + unsigned(datab_out(11 downto 0))/to_unsigned(7.8,12))) then
+			-- 	obj2_red<=b"11";            
+			-- 	obj2_grn<=b"11";
+			-- 	obj2_blu<=b"11";
+			-- 	else
+			-- 	obj2_red<=b"00";            
+			-- 	obj2_grn<=b"00";
+			-- 	obj2_blu<=b"00";
+			-- end if;
         end if;
 		-- Make trace appear before grid
         if (obj2_red=b"00") and (obj2_grn=b"00") and (obj2_blu=b"00") then

@@ -385,30 +385,18 @@ begin
 			-- 	obj2_grn<=b"00";
 			-- 	obj2_blu<=b"00";
 			-- end if;
-			if (vcount = to_integer(0.5 + to_integer(unsigned(datab_out(11 downto 0)))/7.8))
-				obj2_red<=b"11";            
-				obj2_grn<=b"11";
-				obj2_blu<=b"00";
-            else
+			if (vcount = to_integer(5 + 10*unsigned(datab_out(11 downto 0)))/78) then
 				obj2_red<=b"00";            
+				obj2_grn<=b"11";
 				obj2_blu<=b"00";
 			else
 				obj2_red<=b"00";
 				obj2_grn<=b"00";
 				obj2_blu<=b"00";
 			end if;
-			-- if (vcount = to_integer(0.5 + unsigned(datab_out(11 downto 0))/to_unsigned(7.8,12))) then
-			-- 	obj2_red<=b"11";            
-			-- 	obj2_grn<=b"11";
-			-- 	obj2_blu<=b"11";
-			-- 	else
-			-- 	obj2_red<=b"00";            
-			-- 	obj2_grn<=b"00";
-			-- 	obj2_blu<=b"00";
-			-- end if;
         end if;
 		-- Make trace appear before grid
-        if (obj2_red=b"00") and (obj2_grn=b"00") and (obj2_blu=b"00") then
+        if (obj2_red=b"00" and obj2_grn=b"00" and obj2_blu=b"00") then
             screen_red <= obj1_red;
             screen_grn <= obj1_grn;
             screen_blu <= obj1_blu;

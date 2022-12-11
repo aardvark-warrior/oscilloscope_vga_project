@@ -43,7 +43,7 @@ architecture arch of Oscilliscope is
 			vaux5_n: in  std_logic;
 			vaux5_p: in  std_logic;
 			rdy:     out std_logic;
-			data:    out std_logic_vector(11 downto 0)
+			data:    out std_logic_vector(11 downto 0) -- XADC output to RAM => dataa_i; represents scope reading at one time point
 		);
 	end component;
 	component Oscilliscope_ram is
@@ -51,8 +51,8 @@ architecture arch of Oscilliscope is
 			clka_i:  in  std_logic;
 			wea_i:   in  std_logic;
 			addra_i: in  std_logic_vector(9 downto 0);
-			dataa_i: in  std_logic_vector(35 downto 0);
-			dataa_o: out std_logic_vector(35 downto 0);
+			dataa_i: in  std_logic_vector(35 downto 0); -- writes XADC data output as lowest 12 bits of 36
+			dataa_o: out std_logic_vector(35 downto 0); -- VGA reads from here and compare to vcount
 			clkb_i:  in  std_logic;
 			web_i:   in  std_logic;
 			addrb_i: in  std_logic_vector(9 downto 0);
@@ -86,12 +86,16 @@ architecture arch of Oscilliscope is
 	signal vcount:   unsigned(9 downto 0);
 	signal blank:    std_logic;
 	signal frame:    std_logic;
-	signal obj1_red: std_logic_vector(1 downto 0);  -- obj1 -> grid
-	signal obj1_grn: std_logic_vector(1 downto 0);
-	signal obj1_blu: std_logic_vector(1 downto 0);
-	signal obj2_red: std_logic_vector(1 downto 0);  -- obj2 -> reading
-	signal obj2_grn: std_logic_vector(1 downto 0);
-	signal obj2_blu: std_logic_vector(1 downto 0);
+	signal obj1_red: std_logic_vector(1 downto 0):=(others=>'0');  -- obj1 -> grid
+	signal obj1_grn: std_logic_vector(1 downto 0):=(others=>'0');
+	signal obj1_blu: std_logic_vector(1 downto 0):=(others=>'0');
+	signal obj2_red: std_logic_vector(1 downto 0):=(others=>'0');  -- obj2 -> reading
+	signal obj2_grn: std_logic_vector(1 downto 0):=(others=>'0');
+	signal obj2_blu: std_logic_vector(1 downto 0):=(others=>'0');
+	signal screen_red: std_logic_vector(1 downto 0):=(others=>'0');  -- screen -> reading over grid
+	signal screen_grn: std_logic_vector(1 downto 0):=(others=>'0');
+	signal screen_blu: std_logic_vector(1 downto 0):=(others=>'0');
+	
 
 	--signal radius:        unsigned(9 downto 0);	
 	signal ball_x_left:   unsigned(9 downto 0):=to_unsigned(0,10);
@@ -100,12 +104,12 @@ architecture arch of Oscilliscope is
 	signal ball_y_bot:    unsigned(9 downto 0);
 	signal ball_dx:       std_logic:='1';
 	signal ball_dy:       std_logic:='1';
-    signal dataa_11:      std_logic_vector(9 downto 0);
+    signal datab_out:     std_logic_vector(35 downto 0);
 	
 	--signal 
 	
 begin
-    dataa_11 <= to_unsigned(480,12)*unsigned(dataa(11 downto 0))/unsigned(std_logic_vector(b"11111111111"));
+    --dataa_11 <= to_unsigned(480,12)*unsigned(dataa(11 downto 0))/unsigned(std_logic_vector(b"11111111111"));
     --BEGIN WITH OSCILLISCOPE MEASUREMENT
 	gui:  Oscilliscope_gui generic map (SAMPLES=>samples)
 	                port map(clk=>clk,rx=>rx,tx=>tx,addr=>addra,data=>dataa(11 downto 0));
@@ -200,7 +204,6 @@ begin
 	
 	--CONTINUE WITH VGA DISPLAY SYSTEM--
 	tvx<='1';
-
 	------------------------------------------------------------------
 	-- Clock management tile
 	--
@@ -335,52 +338,6 @@ begin
 		end if;
 	end process;
 	
-	-- Relate ball right and bottom edges to left and top edges plus offset
-	--ball_x_right <= ball_x_left + 20;
-	--ball_y_bot   <= ball_y_top + 20;
-	
-	------------------------------------------------------------------
-	-- Move white ball
-	------------------------------------------------------------------
-	process(clkfx,frame)
-	begin
-	    if rising_edge(clkfx) and frame='1' then 			 
-            -- Move ball-x
-            if ball_dx = '1' then
-                if ball_x_right = to_unsigned(639,10) then
-                    ball_x_left <= ball_x_left - 1;
-                    ball_dx <= '0';
-                else
-                    ball_x_left <= ball_x_left + 1;
-                end if;
-            else 
-                if ball_x_left = to_unsigned(0,10) then
-                    ball_x_left <= ball_x_left + 1;
-                    ball_dx <= '1';
-                else
-                    ball_x_left <= ball_x_left - 1;
-                end if;
-            end if; -- dx
-            -- Move ball-y
-            if ball_dy = '1' then
-                if ball_y_bot = to_unsigned(479,10) then
-                    ball_y_top <= ball_y_top - 1;
-                    ball_dy <= '0';
-                else
-                    ball_y_top <= ball_y_top + 1;
-                end if;
-            else -- ball_dy = '0'
-                if ball_y_top = to_unsigned(0,10) then
-                    ball_y_top <= ball_y_top + 1;
-                    ball_dy <= '1';
-                else
-                    ball_y_top <= ball_y_top - 1;
-                end if;
-            end if; -- dy
-	    end if; -- clk & frame
-	end process;
-	
-	
     ------------------------------------------------------------------
 	-- Draw grid
 	------------------------------------------------------------------
@@ -408,22 +365,43 @@ begin
                 obj1_grn<=b"00";
                 obj1_blu<=b"00";
             end if;
-            if (vcount= unsigned(dataa_11)) then
-                obj2_red<=b"11";            
-                obj2_grn<=b"11";
-                obj2_blu<=b"11";
-            else
-                obj2_red<=b"00";            
-                obj2_grn<=b"00";
-                obj2_blu<=b"00";
-            end if;
+			
+			if (vcount=240) then
+				obj2_red<=b"00";
+				obj2_grn<=b"11";
+				obj2_blu<=b"00";
+			else
+				obj2_red<=b"00";
+				obj2_grn<=b"00";
+				obj2_blu<=b"00";
+			end if;
+			-- if (vcount=(480*(1-unsigned(dataa(11 downto 0))/4095))) then
+			-- 	obj2_red<=b"00";
+			-- 	obj2_grn<=b"11";
+			-- 	obj2_blu<=b"00";
+			-- else
+			-- 	obj2_red<=b"00";
+			-- 	obj2_grn<=b"00";
+			-- 	obj2_blu<=b"00";
+			-- end if;
         end if;
+        if (obj2_red=b"00") and (obj2_grn=b"00") and (obj2_blu=b"00") then
+            screen_red <= obj1_red;
+            screen_grn <= obj1_grn;
+            screen_blu <= obj1_blu;
+	    else
+            screen_red <= obj2_red;
+            screen_grn <= obj2_grn;
+            screen_blu <= obj2_blu;
+	end if;
     end process;
 	------------------------------------------------------------------
 	-- VGA output with blanking
 	------------------------------------------------------------------
-	red<=b"00" when blank='1' else obj1_red;
-	green<=b"00" when blank='1' else obj1_grn;
-	blue<=b"00" when blank='1' else obj1_blu;
+	
+	
+	red<=b"00" when blank='1' else screen_red;
+	green<=b"00" when blank='1' else screen_grn;
+	blue<=b"00" when blank='1' else screen_blu;
 
 end arch;

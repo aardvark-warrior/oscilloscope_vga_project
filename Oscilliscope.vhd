@@ -75,12 +75,20 @@ architecture arch of Oscilliscope is
 	signal web: 	std_logic_vector(3 downto 0):=(others=>'0');
 	signal counter: unsigned(10 downto 0):= b"00000000001";
 	signal addra: 	std_logic_vector(9 downto 0);
-	signal dataa: 	std_logic_vector(35 downto 0); -- from RAM to VGA
+	signal dataa: 	std_logic_vector(35 downto 0); -- from RAM ...
+	signal dataa0: 	std_logic_vector(35 downto 0);
+	signal dataa1: 	std_logic_vector(35 downto 0);
+	signal dataa2: 	std_logic_vector(35 downto 0);
+	signal dataa3: 	std_logic_vector(35 downto 0);
 	signal addrb0: 	std_logic_vector(9 downto 0);
 	signal addrb1: 	std_logic_vector(9 downto 0);
 	signal addrb2: 	std_logic_vector(9 downto 0);
 	signal addrb3: 	std_logic_vector(9 downto 0);
 	signal datab: 	std_logic_vector(35 downto 0); -- from ADC ...
+	signal datab0: 	std_logic_vector(35 downto 0);
+	signal datab1: 	std_logic_vector(35 downto 0);
+	signal datab2: 	std_logic_vector(35 downto 0);
+	signal datab3: 	std_logic_vector(35 downto 0);
 
 	
 	--VGA --
@@ -100,7 +108,7 @@ architecture arch of Oscilliscope is
 	signal screen_grn: std_logic_vector(1 downto 0):=(others=>'0');
 	signal screen_blu: std_logic_vector(1 downto 0):=(others=>'0');
 	
-	signal adc_count: unsigned(1 downto 0):=to_unsigned(0,2); 
+	signal adc_count: unsigned(1 downto 0):=to_unsigned(0,2);
 
 begin
     --dataa_11 <= to_unsigned(480,12)*unsigned(dataa(11 downto 0))/unsigned(std_logic_vector(b"11111111111"));
@@ -111,20 +119,20 @@ begin
 	adc:  Oscilliscope_adc port map(clk=>fclk,vaux5_n=>vaux5_n,vaux5_p=>vaux5_p,rdy=>rdy,data=>datab(11 downto 0));
 	
 	ram0: Oscilliscope_ram port map(
-		clka_i=>clk,wea_i=>wea(0),addra_i=>addra,dataa_i=>(others=>'0'),dataa_o=>dataa, -- port A output to VGA
-		clkb_i=>fclk,web_i=>web(0),addrb_i=>addrb0,datab_i=>datab,datab_o=>open          -- port B input from ADC
+		clka_i=>clk,wea_i=>wea(0),addra_i=>addra,dataa_i=>(others=>'0'),dataa_o=>dataa0, -- port A output to VGA
+		clkb_i=>fclk,web_i=>web(0),addrb_i=>addrb0,datab_i=>datab0,datab_o=>open          -- port B input from ADC
     );
 	ram1: Oscilliscope_ram port map(
-		clka_i=>clk,wea_i=>wea(1),addra_i=>addra,dataa_i=>(others=>'0'),dataa_o=>dataa,
-		clkb_i=>fclk,web_i=>web(1),addrb_i=>addrb1,datab_i=>datab,datab_o=>open
+		clka_i=>clk,wea_i=>wea(1),addra_i=>addra,dataa_i=>(others=>'0'),dataa_o=>dataa1,
+		clkb_i=>fclk,web_i=>web(1),addrb_i=>addrb1,datab_i=>datab1,datab_o=>open
 	);
 	ram2: Oscilliscope_ram port map(
-		clka_i=>clk,wea_i=>wea(2),addra_i=>addra,dataa_i=>(others=>'0'),dataa_o=>dataa,
-		clkb_i=>fclk,web_i=>web(2),addrb_i=>addrb2,datab_i=>datab,datab_o=>open
+		clka_i=>clk,wea_i=>wea(2),addra_i=>addra,dataa_i=>(others=>'0'),dataa_o=>dataa2,
+		clkb_i=>fclk,web_i=>web(2),addrb_i=>addrb2,datab_i=>datab2,datab_o=>open
 	);
 	ram3: Oscilliscope_ram port map(
-		clka_i=>clk,wea_i=>wea(3),addra_i=>addra,dataa_i=>(others=>'0'),dataa_o=>dataa,
-		clkb_i=>fclk,web_i=>web(3),addrb_i=>addrb3,datab_i=>datab,datab_o=>open
+		clka_i=>clk,wea_i=>wea(3),addra_i=>addra,dataa_i=>(others=>'0'),dataa_o=>dataa3,
+		clkb_i=>fclk,web_i=>web(3),addrb_i=>addrb3,datab_i=>datab3,datab_o=>open
 	);
    
 	pio31 <= out31;
@@ -140,7 +148,8 @@ begin
 	process(rdy) -- RAM input (read from ADC) enable sequence
 	begin
 		if rising_edge(rdy) then
-			if wea(3)='1' or (std_logic_vector(adc_count)=b"00" and wea(0)='0') then     -- on ram0
+			if (std_logic_vector(adc_count)=b"11" and wea(3)='1') or 
+				(std_logic_vector(adc_count)=b"00" and wea(0)='0') then     -- on ram0
 				web<=(0=>rdy,others=>'0');
 				adc_count <= adc_count + to_unsigned(1,2);
 				if (addrb0=std_logic_vector(to_unsigned(samples-1,10))) then
@@ -182,29 +191,37 @@ begin
 			if web=b"0001" then
 				if wea=b"1000" then
 					wea<=b"0100";
+					datab2<=datab;
 				else 
 					wea<=b"1000";
+					datab3<=datab;
 				end if;
 				--wea<=b"0100" when wea=b"1000" else b"1000"
 			elsif web=b"0010" then
 				if wea=b"0001" then
 					wea<=b"1000";
+					datab3<=datab;
 				else 
 					wea<=b"0001";
+					datab0<=datab;
 				end if;
 				--wea<=b"1000" when wea=b"0001" else b"0001"
 			elsif web=b"0100" then
 				if wea=b"0010" then
 					wea<=b"0001";
+					datab0<=datab;
 				else 
 					wea<=b"0010";
+					datab1<=datab;
 				end if;
 				--wea<=b"0001" when wea=b"0010" else b"0010"
 			else
 				if wea=b"0100" then
 					wea<=b"0010";
+					datab1<=datab;
 				else 
 					wea<=b"0100";
+					datab2<=datab;
 				end if;
 				--wea<=b"0010" when wea=b"0100" else wea=b"0100"
 			end if;

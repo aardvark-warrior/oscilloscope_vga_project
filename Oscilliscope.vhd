@@ -75,10 +75,13 @@ architecture arch of Oscilliscope is
 	signal web: 	std_logic_vector(3 downto 0):=(others=>'0');
 	signal counter: unsigned(10 downto 0):= b"00000000001";
 	signal addra: 	std_logic_vector(9 downto 0);
-	signal dataa: 	std_logic_vector(35 downto 0);
-	signal addrb: 	std_logic_vector(9 downto 0);
-	signal datab: 	std_logic_vector(35 downto 0);
-	
+	signal dataa: 	std_logic_vector(35 downto 0); -- from RAM to VGA
+	signal addrb0: 	std_logic_vector(9 downto 0);
+	signal addrb1: 	std_logic_vector(9 downto 0);
+	signal addrb2: 	std_logic_vector(9 downto 0);
+	signal addrb3: 	std_logic_vector(9 downto 0);
+	signal datab: 	std_logic_vector(35 downto 0); -- from ADC ...
+
 	
 	--VGA --
 	signal clkfb:    std_logic;
@@ -97,8 +100,8 @@ architecture arch of Oscilliscope is
 	signal screen_grn: std_logic_vector(1 downto 0):=(others=>'0');
 	signal screen_blu: std_logic_vector(1 downto 0):=(others=>'0');
 	
-	--signal 
-	
+	signal adc_count: unsigned(1 downto 0):=to_unsigned(0,2); 
+
 begin
     --dataa_11 <= to_unsigned(480,12)*unsigned(dataa(11 downto 0))/unsigned(std_logic_vector(b"11111111111"));
     --BEGIN WITH OSCILLISCOPE MEASUREMENT
@@ -109,25 +112,24 @@ begin
 	
 	ram0: Oscilliscope_ram port map(
 		clka_i=>clk,wea_i=>wea(0),addra_i=>addra,dataa_i=>(others=>'0'),dataa_o=>dataa, -- port A output to VGA
-		clkb_i=>fclk,web_i=>web(0),addrb_i=>addrb,datab_i=>datab,datab_o=>open          -- port B input from ADC
+		clkb_i=>fclk,web_i=>web(0),addrb_i=>addrb0,datab_i=>datab,datab_o=>open          -- port B input from ADC
     );
 	ram1: Oscilliscope_ram port map(
 		clka_i=>clk,wea_i=>wea(1),addra_i=>addra,dataa_i=>(others=>'0'),dataa_o=>dataa,
-		clkb_i=>fclk,web_i=>web(1),addrb_i=>addrb,datab_i=>datab,datab_o=>open
+		clkb_i=>fclk,web_i=>web(1),addrb_i=>addrb1,datab_i=>datab,datab_o=>open
 	);
-	-- ram2: Oscilliscope_ram port map(
-	-- 	clka_i=>clk,wea_i=>wea(2),addra_i=>addra,dataa_i=>(others=>'0'),dataa_o=>dataa,
-	-- 	clkb_i=>fclk,web_i=>web(2),addrb_i=>addrb,datab_i=>datab,datab_o=>open
-	-- );
-	-- ram3: Oscilliscope_ram port map(
-	-- 	clka_i=>clk,wea_i=>wea(3),addra_i=>addra,dataa_i=>(others=>'0'),dataa_o=>dataa,
-	-- 	clkb_i=>fclk,web_i=>web(3),addrb_i=>addrb,datab_i=>datab,datab_o=>open
-	-- );
+	ram2: Oscilliscope_ram port map(
+		clka_i=>clk,wea_i=>wea(2),addra_i=>addra,dataa_i=>(others=>'0'),dataa_o=>dataa,
+		clkb_i=>fclk,web_i=>web(2),addrb_i=>addrb2,datab_i=>datab,datab_o=>open
+	);
+	ram3: Oscilliscope_ram port map(
+		clka_i=>clk,wea_i=>wea(3),addra_i=>addra,dataa_i=>(others=>'0'),dataa_o=>dataa,
+		clkb_i=>fclk,web_i=>web(3),addrb_i=>addrb3,datab_i=>datab,datab_o=>open
+	);
    
 	pio31 <= out31;
-	web(0) <= rdy;
-
-	wea(0) <= frame;
+	-- web(0) <= rdy;
+	-- wea(0) <= frame;
 	-- if (ramcount = '1') then
 	--     web_ram0 = '0'
     --     web_ram1 = '1'
@@ -135,16 +137,90 @@ begin
 	--     web_ram3 = '0'
     -- end if;
 
-	process(rdy) -- 
+	process(rdy) -- RAM input (read from ADC) enable sequence
 	begin
 		if rising_edge(rdy) then
-			if (addrb=std_logic_vector(to_unsigned(samples-1,10))) then
-				addrb<=b"00_0000_0000";
-			else
-				addrb<= std_logic_vector(unsigned(addrb) + to_unsigned(1,10));
+			if wea(3)='1' or (std_logic_vector(adc_count)=b"00" and wea(0)='0') then     -- on ram0
+				web<=(0=>rdy,others=>'0');
+				adc_count <= adc_count + to_unsigned(1,2);
+				if (addrb0=std_logic_vector(to_unsigned(samples-1,10))) then
+					addrb0<=b"00_0000_0000";
+				else
+					addrb0<= std_logic_vector(unsigned(addrb0) + to_unsigned(1,10));
+				end if;
+			elsif std_logic_vector(adc_count)=b"01" and wea(1)='0'then  -- on ram1
+				web<=(1=>rdy,others=>'0');
+				adc_count <= adc_count + to_unsigned(1,2);
+				if (addrb1=std_logic_vector(to_unsigned(samples-1,10))) then
+					addrb1<=b"00_0000_0000";
+				else
+					addrb1<= std_logic_vector(unsigned(addrb1) + to_unsigned(1,10));
+				end if;
+			elsif std_logic_vector(adc_count)=b"10" and wea(2)='0'then  -- on ram2
+				web<=(2=>rdy,others=>'0');
+				adc_count <= adc_count + to_unsigned(1,2);
+				if (addrb2=std_logic_vector(to_unsigned(samples-1,10))) then
+					addrb2<=b"00_0000_0000";
+				else
+					addrb2<= std_logic_vector(unsigned(addrb2) + to_unsigned(1,10));
+				end if;
+			else										  -- on ram3
+				web<=(3=>rdy,others=>'0');									  
+				adc_count <= to_unsigned(0,2);
+				if (addrb3=std_logic_vector(to_unsigned(samples-1,10))) then
+					addrb3<=b"00_0000_0000";
+				else
+					addrb3<= std_logic_vector(unsigned(addrb3) + to_unsigned(1,10));
+				end if;
 			end if;
 		end if;
 	end process;
+
+	process(frame) -- RAM output (write to VGA) enable sequence
+	begin
+		if rising_edge(frame) then
+			if web=b"0001" then
+				if wea=b"1000" then
+					wea<=b"0100";
+				else 
+					wea<=b"1000";
+				end if;
+				--wea<=b"0100" when wea=b"1000" else b"1000"
+			elsif web=b"0010" then
+				if wea=b"0001" then
+					wea<=b"1000";
+				else 
+					wea<=b"0001";
+				end if;
+				--wea<=b"1000" when wea=b"0001" else b"0001"
+			elsif web=b"0100" then
+				if wea=b"0010" then
+					wea<=b"0001";
+				else 
+					wea<=b"0010";
+				end if;
+				--wea<=b"0001" when wea=b"0010" else b"0010"
+			else
+				if wea=b"0100" then
+					wea<=b"0010";
+				else 
+					wea<=b"0100";
+				end if;
+				--wea<=b"0010" when wea=b"0100" else wea=b"0100"
+			end if;
+		end if;
+	end process;
+
+	-- process(rdy) --Code from Lab 5 
+	-- begin
+	-- 	if rising_edge(rdy) then
+	-- 		if (addrb=std_logic_vector(to_unsigned(samples-1,10))) then
+	-- 			addrb<=b"00_0000_0000";
+	-- 		else
+	-- 			addrb<= std_logic_vector(unsigned(addrb) + to_unsigned(1,10));
+	-- 		end if;
+	-- 	end if;
+	-- end process;
 	
 	process(fclk) -- create square wave
 	begin

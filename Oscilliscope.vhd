@@ -128,42 +128,42 @@ begin
 	   datab_i=>datab,
 	   datab_o=>open
    );
-  ram1: Oscilliscope_ram port map(
-	   clka_i=>clk,
-	   wea_i=>wea(1),
-	   addra_i=>addra,
-	   dataa_i=>(others=>'0'),
-	   dataa_o=>dataa,
-	   clkb_i=>fclk,
-	   web_i=>web(1),
-	   addrb_i=>addrb,
-	   datab_i=>datab,
-	   datab_o=>open
-  );
-  ram2: Oscilliscope_ram port map(
-	   clka_i=>clk,
-	   wea_i=>wea(2),
-	   addra_i=>addra,
-	   dataa_i=>(others=>'0'),
-	   dataa_o=>dataa,
-	   clkb_i=>fclk,
-	   web_i=>web(2),
-	   addrb_i=>addrb,
-	   datab_i=>datab,
-	   datab_o=>open
-  );
-  ram3: Oscilliscope_ram port map(
-	   clka_i=>clk,
-	   wea_i=>wea(3),
-	   addra_i=>addra,
-	   dataa_i=>(others=>'0'),
-	   dataa_o=>dataa,
-	   clkb_i=>fclk,
-	   web_i=>web(3),
-	   addrb_i=>addrb,
-	   datab_i=>datab,
-	   datab_o=>open
-  );
+--   ram1: Oscilliscope_ram port map(
+-- 	   clka_i=>clk,
+-- 	   wea_i=>wea(1),
+-- 	   addra_i=>addra,
+-- 	   dataa_i=>(others=>'0'),
+-- 	   dataa_o=>dataa,
+-- 	   clkb_i=>fclk,
+-- 	   web_i=>web(1),
+-- 	   addrb_i=>addrb,
+-- 	   datab_i=>datab,
+-- 	   datab_o=>open
+--   );
+--   ram2: Oscilliscope_ram port map(
+-- 	   clka_i=>clk,
+-- 	   wea_i=>wea(2),
+-- 	   addra_i=>addra,
+-- 	   dataa_i=>(others=>'0'),
+-- 	   dataa_o=>dataa,
+-- 	   clkb_i=>fclk,
+-- 	   web_i=>web(2),
+-- 	   addrb_i=>addrb,
+-- 	   datab_i=>datab,
+-- 	   datab_o=>open
+--   );
+--   ram3: Oscilliscope_ram port map(
+-- 	   clka_i=>clk,
+-- 	   wea_i=>wea(3),
+-- 	   addra_i=>addra,
+-- 	   dataa_i=>(others=>'0'),
+-- 	   dataa_o=>dataa,
+-- 	   clkb_i=>fclk,
+-- 	   web_i=>web(3),
+-- 	   addrb_i=>addrb,
+-- 	   datab_i=>datab,
+-- 	   datab_o=>open
+--   );
    
 	pio31 <= out31;
 	web(0) <= rdy;
@@ -385,7 +385,7 @@ begin
 			-- 	obj2_grn<=b"00";
 			-- 	obj2_blu<=b"00";
 			-- end if;
-			if (vcount = to_integer(5 + 10*unsigned(dataa(11 downto 0)))/78) then
+			if (vcount = 525 - to_integer(5 + 10*unsigned(dataa(11 downto 0)))/78) then
 				obj2_red<=b"00";            
 				obj2_grn<=b"11";
 				obj2_blu<=b"00";

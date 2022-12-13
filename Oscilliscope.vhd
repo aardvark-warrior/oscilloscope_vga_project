@@ -71,13 +71,25 @@ architecture arch of Oscilliscope is
 	signal fclk:    std_logic;
 	signal rdy:  	std_logic;
 	signal out31: 	std_logic;
-	signal web: 	std_logic;
+	signal web: 	std_logic_vector(3 downto 0):= b"0000";
 	signal counter: unsigned(10 downto 0):= b"00000000001";
-	signal addra: 	std_logic_vector(9 downto 0); -- driven by gui
-	signal addr_a:	std_logic_vector(9 downto 0); -- driven by VGA hcount
-	signal dataa: 	std_logic_vector(35 downto 0); -- from RAM ...
+	signal addra: 	std_logic_vector(9 downto 0); 	-- driven by gui
+	signal addr_a:	std_logic_vector(9 downto 0); 	-- driven by VGA hcount
+	signal dataa_: 	std_logic_vector(35 downto 0); 	-- from RAM ...
+	signal dataa0: 	std_logic_vector(35 downto 0); 	
+	signal dataa1: 	std_logic_vector(35 downto 0); 	
+	signal dataa2: 	std_logic_vector(35 downto 0); 	
+	signal dataa3: 	std_logic_vector(35 downto 0); 	
 	signal addrb: 	std_logic_vector(9 downto 0);
-	signal datab: 	std_logic_vector(35 downto 0); -- from ADC ...
+	signal datab_: 	std_logic_vector(35 downto 0); 	-- from ADC ...
+	-- signal datab0: 	std_logic_vector(35 downto 0);
+	-- signal datab1: 	std_logic_vector(35 downto 0);
+	-- signal datab2: 	std_logic_vector(35 downto 0);
+	-- signal datab3: 	std_logic_vector(35 downto 0);
+	signal adc_loc: unsigned(1 downto 0):=b"00";	-- track adc location in buffer chain
+	signal vga_loc: unsigned(1 downto 0):=b"00";	-- track vga location in buffer chain
+	signal adc_loc_next: unsigned(1 downto 0);
+	signal vga_loc_next: unsigned(1 downto 0);
 	--VGA --
 	signal clkfb:    std_logic;
 	signal clkfx:    std_logic;
@@ -102,45 +114,123 @@ architecture arch of Oscilliscope is
 	signal grid_width: unsigned(9 downto 0):=to_unsigned(330,10);
 	signal grid_height: unsigned(9 downto 0):=to_unsigned(256,10);
 
-	
 begin
     --BEGIN WITH OSCILLISCOPE MEASUREMENT
 	gui:  Oscilliscope_gui generic map (SAMPLES=>samples)
-	                port map(clk=>clk,rx=>rx,tx=>tx,addr=>addra,data=>dataa(11 downto 0));
+	                port map(clk=>clk,rx=>rx,tx=>tx,addr=>addra,data=>dataa_(11 downto 0));
 	cmt:  Oscilliscope_cmt port map(clk_i=>clk,clk_o=>fclk);
-	adc:  Oscilliscope_adc port map(clk=>fclk,vaux5_n=>vaux5_n,vaux5_p=>vaux5_p,rdy=>rdy,data=>datab(11 downto 0));
+	adc:  Oscilliscope_adc port map(clk=>fclk,vaux5_n=>vaux5_n,vaux5_p=>vaux5_p,rdy=>rdy,data=>datab_(11 downto 0));
 	ram0: Oscilliscope_ram port map(
-		clka_i=>clk,  -- port A read only output to VGA
+		clka_i=>clk,  		-- port A read only output to VGA
 		wea_i=>'0',
-		addra_i=>addr_a, -- 10 bits
+		addra_i=>addr_a, 	-- 10 bits
 		dataa_i=>(others=>'0'),
-		dataa_o=>dataa,  -- 36 bits
-		clkb_i=>fclk, -- port B write enable from ADC
-		web_i=>web,
-		addrb_i=>addrb,
-		datab_i=>datab,
+		dataa_o=>dataa0,  	-- 36 bits
+		clkb_i=>fclk, 		
+		web_i=>web(0),     	--TODO: on rising_edge(rdy), select the right web-bit to wire to rdy, and set others to '0'
+		addrb_i=>addrb,     
+		datab_i=>datab_,     --TODO
 		datab_o=>open 
     );
-
+	ram1: Oscilliscope_ram port map(
+		clka_i=>clk,  		-- port A read only output to VGA
+		wea_i=>'0',
+		addra_i=>addr_a, 	-- 10 bits
+		dataa_i=>(others=>'0'),
+		dataa_o=>dataa1,  	-- 36 bits
+		clkb_i=>fclk, 		
+		web_i=>web(1),    	 	--TODO
+		addrb_i=>addrb,     
+		datab_i=>datab_,     --TODO
+		datab_o=>open 
+    );
+	ram2: Oscilliscope_ram port map(
+		clka_i=>clk,  		-- port A read only output to VGA
+		wea_i=>'0',
+		addra_i=>addr_a, 	-- 10 bits
+		dataa_i=>(others=>'0'),
+		dataa_o=>dataa2,  	-- 36 bits
+		clkb_i=>fclk, 		
+		web_i=>web(2),     	--TODO
+		addrb_i=>addrb,     
+		datab_i=>datab_,     --TODO
+		datab_o=>open 
+    );
+	ram3: Oscilliscope_ram port map(
+		clka_i=>clk,  		-- port A read only output to VGA
+		wea_i=>'0',
+		addra_i=>addr_a, 	-- 10 bits
+		dataa_i=>(others=>'0'),
+		dataa_o=>dataa3,  	-- 36 bits
+		clkb_i=>fclk, 		
+		web_i=>web(3),	     	--TODO
+		addrb_i=>addrb,     
+		datab_i=>datab_,     --TODO
+		datab_o=>open 
+    );
+	-- TODO: potential timing issue between frame and rdy signals, causing:
+	--		 1) vga to not select most recent data, or 
+	-- 		 2) adc to jump to ram used by vga (if vga loc updates right as adc switches)
 	------------------------------------------------------------------
-	-- TODO: Buffer chain code
+	-- RAM from Buffer Chain logic
 	------------------------------------------------------------------
 	addr_a <= std_logic_vector(hcount);
+	-- * Switch ram block to read from after each frame * --
+	process(frame,adc_loc)
+	begin
+		-- Select ram most-recently used by adc as next vga_loc
+		if vga_loc=adc_loc-1 then
+			vga_loc_next <= vga_loc-1;
+		else
+			vga_loc_next <= adc_loc-1;
+		end if;
+		
+		if rising_edge(frame)
+			vga_loc <= vga_loc_next;	-- Only update vga_loc on every new frame
+			if vga_loc_next=to_unsigned(0,2) then
+				dataa_ <= dataa0;
+			elsif vga_loc_next<=to_unsigned(1,2) then
+				dataa_ <= dataa1;
+			elsif vga_loc_next<=to_unsigned(2,2) then
+				dataa_ <= dataa2;
+			else
+				dataa_ <= dataa3;
+			end if;
+		end if;
+	end process;
 
 	------------------------------------------------------------------
-	-- Increment addrb of ram0 
+	-- ADC to Buffer Chain logic
 	------------------------------------------------------------------
-	web <= rdy;
-	process(rdy) 
+	-- web <= rdy;
+	process(rdy,vga_loc) 
 	begin
+		-- Select next ram in buffer chain, skipping vga_loc
+		if adc_loc=vga_loc-1 then
+			adc_loc_next <= vga_loc+1;
+		else
+			adc_loc_next <= adc_loc+1;
+		end if;
+
 		if rising_edge(rdy) then
 			if (addrb=std_logic_vector(to_unsigned(samples-1,10))) then
 				addrb<=b"00_0000_0000";
+				adc_loc <= adc_loc_next;	-- Only update adc_loc when finished writing a ram block
+				if adc_loc_next=to_unsigned(0,2) then
+					web <= (0=>rdy,others=>'0');
+				elsif adc_loc_next=to_unsigned(1,2) then
+					web <= (1=>rdy,others=>'0');
+				elsif adc_loc_next=to_unsigned(2,2) then
+					web <= (2=>rdy,others=>'0');
+				else
+					web <= (3=>rdy,others=>'0');
+				end if;
 			else
 				addrb<= std_logic_vector(unsigned(addrb) + to_unsigned(1,10));
 			end if;
 		end if;
 	end process;
+
 	------------------------------------------------------------------
 	-- Generate square wave
 	------------------------------------------------------------------
@@ -315,7 +405,7 @@ begin
 			
 			-- Draw line/trace using one RAM block (ram0)
             if vcount>=grid_top and vcount<=grid_bottom and hcount>=grid_left and hcount<=grid_right and 
-				vcount=(10+grid_width-unsigned(dataa(11 downto 0))/(4096/grid_width)) then
+				vcount=(10+grid_width-unsigned(dataa_(11 downto 0))/(4096/grid_width)) then
 				line_red<=b"00";            
 				line_grn<=b"11";
 				line_blu<=b"00";
@@ -337,6 +427,7 @@ begin
             screen_blu <= line_blu;
 	end if;
     end process;
+
 	------------------------------------------------------------------
 	-- VGA output with blanking
 	------------------------------------------------------------------

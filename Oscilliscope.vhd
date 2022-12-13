@@ -75,13 +75,13 @@ architecture arch of Oscilliscope is
 	signal counter: unsigned(10 downto 0):= b"00000000001";
 	signal addra: 	std_logic_vector(9 downto 0); 	-- driven by gui
 	signal addr_a:	std_logic_vector(9 downto 0); 	-- driven by VGA hcount
-	signal dataa_: 	std_logic_vector(35 downto 0); 	-- from RAM ...
+	signal dataa: 	std_logic_vector(35 downto 0); 	-- from RAM ...
 	signal dataa0: 	std_logic_vector(35 downto 0); 	
 	signal dataa1: 	std_logic_vector(35 downto 0); 	
 	signal dataa2: 	std_logic_vector(35 downto 0); 	
 	signal dataa3: 	std_logic_vector(35 downto 0); 	
 	signal addrb: 	std_logic_vector(9 downto 0);
-	signal datab_: 	std_logic_vector(35 downto 0); 	-- from ADC ...
+	signal datab: 	std_logic_vector(35 downto 0); 	-- from ADC ...
 	signal adc_loc: unsigned(1 downto 0):=b"00";	-- track adc location in buffer chain
 	signal vga_loc: unsigned(1 downto 0):=b"00";	-- track vga location in buffer chain
 	signal adc_loc_next: unsigned(1 downto 0);
@@ -113,9 +113,9 @@ architecture arch of Oscilliscope is
 begin
     --BEGIN WITH OSCILLISCOPE MEASUREMENT
 	gui:  Oscilliscope_gui generic map (SAMPLES=>samples)
-	                port map(clk=>clk,rx=>rx,tx=>tx,addr=>addra,data=>dataa_(11 downto 0));
+	                port map(clk=>clk,rx=>rx,tx=>tx,addr=>addra,data=>dataa(11 downto 0));
 	cmt:  Oscilliscope_cmt port map(clk_i=>clk,clk_o=>fclk);
-	adc:  Oscilliscope_adc port map(clk=>fclk,vaux5_n=>vaux5_n,vaux5_p=>vaux5_p,rdy=>rdy,data=>datab_(11 downto 0));
+	adc:  Oscilliscope_adc port map(clk=>fclk,vaux5_n=>vaux5_n,vaux5_p=>vaux5_p,rdy=>rdy,data=>datab(11 downto 0));
 	ram0: Oscilliscope_ram port map(
 		clka_i=>clk,  		-- port A read only output to VGA
 		wea_i=>'0',
@@ -125,7 +125,7 @@ begin
 		clkb_i=>fclk, 		
 		web_i=>web(0),     	--TODO: on rising_edge(rdy), select the right web-bit to wire to rdy, and set others to '0'
 		addrb_i=>addrb,     
-		datab_i=>datab_,    --TODO: might not work?
+		datab_i=>datab,    --TODO: might not work?
 		datab_o=>open 
     );
 	ram1: Oscilliscope_ram port map(
@@ -137,7 +137,7 @@ begin
 		clkb_i=>fclk, 		
 		web_i=>web(1),    	 	
 		addrb_i=>addrb,     
-		datab_i=>datab_,     
+		datab_i=>datab,     
 		datab_o=>open 
     );
 	ram2: Oscilliscope_ram port map(
@@ -149,7 +149,7 @@ begin
 		clkb_i=>fclk, 		
 		web_i=>web(2),     	
 		addrb_i=>addrb,     
-		datab_i=>datab_,     
+		datab_i=>datab,     
 		datab_o=>open 
     );
 	ram3: Oscilliscope_ram port map(
@@ -161,7 +161,7 @@ begin
 		clkb_i=>fclk, 		
 		web_i=>web(3),	     	
 		addrb_i=>addrb,     
-		datab_i=>datab_,     
+		datab_i=>datab,     
 		datab_o=>open 
     );
 
@@ -183,16 +183,16 @@ begin
 			vga_loc_next <= adc_loc-1;
 		end if;
 		
-		if rising_edge(frame)
+		if rising_edge(frame) then
 			vga_loc <= vga_loc_next;	-- Only update vga_loc on every new frame
 			if vga_loc_next=to_unsigned(0,2) then
-				dataa_ <= dataa0;
+				dataa <= dataa0;
 			elsif vga_loc_next<=to_unsigned(1,2) then
-				dataa_ <= dataa1;
+				dataa <= dataa1;
 			elsif vga_loc_next<=to_unsigned(2,2) then
-				dataa_ <= dataa2;
+				dataa <= dataa2;
 			else
-				dataa_ <= dataa3;
+				dataa <= dataa3;
 			end if;
 		end if;
 	end process;
@@ -403,7 +403,7 @@ begin
 			
 			-- Draw line/trace using one RAM block (ram0)
             if vcount>=grid_top and vcount<=grid_bottom and hcount>=grid_left and hcount<=grid_right and 
-				vcount=(10+grid_width-unsigned(dataa_(11 downto 0))/(4096/grid_width)) then
+				vcount=(10+grid_width-unsigned(dataa(11 downto 0))/(4096/grid_width)) then
 				line_red<=b"00";            
 				line_grn<=b"11";
 				line_blu<=b"00";

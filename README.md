@@ -1,6 +1,8 @@
 # FPGA Synthesis Lab Final Project
 
-## Oscilloscope with VGA Display
+## Oscilloscope with VGA Display 
+
+*using VHDL on Xilinx Cmod S7*
 
 ### **Files**
 

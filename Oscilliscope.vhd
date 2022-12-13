@@ -109,7 +109,7 @@ architecture arch of Oscilliscope is
 	signal screen_red: std_logic_vector(1 downto 0):=(others=>'0');  -- screen -> reading over grid
 	signal screen_grn: std_logic_vector(1 downto 0):=(others=>'0');
 	signal screen_blu: std_logic_vector(1 downto 0):=(others=>'0');
-
+	--Dimensions of scope grid--
 	signal grid_top: 	unsigned(9 downto 0):=to_unsigned(10,10);
 	signal grid_left: 	unsigned(9 downto 0):=to_unsigned(10,10);
 	signal grid_bottom: unsigned(9 downto 0):=to_unsigned(265,10); -- 10 + (256-1)

@@ -114,8 +114,8 @@ architecture arch of Oscilliscope is
 	signal grid_left: 	unsigned(9 downto 0):=to_unsigned(10,10);
 	signal grid_bottom: unsigned(9 downto 0):=to_unsigned(265,10); -- 10 + (256-1)
 	signal grid_right: 	unsigned(9 downto 0):=to_unsigned(329,10); -- 10 + (330-1)
-	signal grid_width: unsigned(9 downto 0):=to_unsigned(256,10);
-	signal grid_height: unsigned(9 downto 0):=to_unsigned(330,10);
+	signal grid_width: unsigned(9 downto 0):=to_unsigned(330,10);
+	signal grid_height: unsigned(9 downto 0):=to_unsigned(256,10);
 
 	
 begin
@@ -333,8 +333,10 @@ begin
         if rising_edge(clkfx) then
 			-- Draw grid
             if vcount>=grid_top and vcount<=grid_bottom and hcount>=grid_left and hcount<=grid_right and
-				(vcount=grid_top or vcount=grid_top+grid_height/2 or vcount=grid_bottom or hcount=grid_left or hcount=grid_left+grid_width/2 or hcount=grid_right or
-				 vcount=grid_top+grid_height/4 or vcount=grid_top+3*grid_height/4 or hcount=grid_left+grid_width/4 or hcount=grid_left+3*grid_width/4) then
+				(vcount=grid_top or vcount=grid_top+grid_height/2 or vcount=grid_bottom or 
+				 hcount=grid_left or hcount=grid_left+grid_width/2 or hcount=grid_right or
+				 vcount=grid_top+grid_height/4 or vcount=grid_top+3*grid_height/4 or 
+				 hcount=grid_left+grid_width/4 or hcount=grid_left+3*grid_width/4) then
 				grd_red<=b"01";            
 				grd_grn<=b"01";
 				grd_blu<=b"01";

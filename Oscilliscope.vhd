@@ -73,10 +73,9 @@ architecture arch of Oscilliscope is
 	signal out31: 	std_logic;
 	signal wea: 	std_logic;
 	signal web: 	std_logic;
-	-- signal wea:		std_logic_vector(3 downto 0):=(others=>'0');
-	-- signal web: 	std_logic_vector(3 downto 0):=(others=>'0');
 	signal counter: unsigned(10 downto 0):= b"00000000001";
-	signal addra: 	std_logic_vector(9 downto 0);
+	signal addra: 	std_logic_vector(9 downto 0); -- driven by gui
+	signal addr_a:	std_logic_vector(9 downto 0); -- driven by VGA hcount
 	signal dataa: 	std_logic_vector(35 downto 0); -- from RAM ...
 	-- signal dataa0: 	std_logic_vector(35 downto 0);
 	-- signal dataa1: 	std_logic_vector(35 downto 0);
@@ -101,15 +100,23 @@ architecture arch of Oscilliscope is
 	signal vcount:   unsigned(9 downto 0);
 	signal blank:    std_logic;
 	signal frame:    std_logic;
-	signal obj1_red: std_logic_vector(1 downto 0):=(others=>'0');  -- obj1 -> grid
-	signal obj1_grn: std_logic_vector(1 downto 0):=(others=>'0');
-	signal obj1_blu: std_logic_vector(1 downto 0):=(others=>'0');
-	signal obj2_red: std_logic_vector(1 downto 0):=(others=>'0');  -- obj2 -> reading
-	signal obj2_grn: std_logic_vector(1 downto 0):=(others=>'0');
-	signal obj2_blu: std_logic_vector(1 downto 0):=(others=>'0');
+	signal grd_red: std_logic_vector(1 downto 0):=(others=>'0');  -- grid
+	signal grd_grn: std_logic_vector(1 downto 0):=(others=>'0');
+	signal grd_blu: std_logic_vector(1 downto 0):=(others=>'0');
+	signal line_red: std_logic_vector(1 downto 0):=(others=>'0');  -- reading
+	signal line_grn: std_logic_vector(1 downto 0):=(others=>'0');
+	signal line_blu: std_logic_vector(1 downto 0):=(others=>'0');
 	signal screen_red: std_logic_vector(1 downto 0):=(others=>'0');  -- screen -> reading over grid
 	signal screen_grn: std_logic_vector(1 downto 0):=(others=>'0');
 	signal screen_blu: std_logic_vector(1 downto 0):=(others=>'0');
+
+	signal grid_top: 	unsigned(9 downto 0):=to_unsigned(10,10);
+	signal grid_left: 	unsigned(9 downto 0):=to_unsigned(10,10);
+	signal grid_bottom: unsigned(9 downto 0):=to_unsigned(265,10); -- 10 + (256-1)
+	signal grid_right: 	unsigned(9 downto 0):=to_unsigned(329,10); -- 10 + (330-1)
+	signal grid_width: unsigned(9 downto 0):=to_unsigned(256,10);
+	signal grid_height: unsigned(9 downto 0):=to_unsigned(330,10);
+
 	
 begin
     --BEGIN WITH OSCILLISCOPE MEASUREMENT
@@ -121,9 +128,9 @@ begin
 	ram0: Oscilliscope_ram port map(
 		clka_i=>clk,  -- port A read only output to VGA
 		wea_i=>'0',
-		addra_i=>addra,
-		dataa_i=>(b"0000_0000_0000_0000_0000_0000_00"&std_logic_vector(hcount)), --(others=>'0'),
-		dataa_o=>dataa, 
+		addra_i=>addr_a, -- 10 bits
+		dataa_i=>(others=>'0'),
+		dataa_o=>dataa,  -- 36 bits
 		clkb_i=>fclk, -- port B write enable from ADC
 		web_i=>web,
 		addrb_i=>addrb,
@@ -133,13 +140,7 @@ begin
 
 	pio31 <= out31;
 	web <= rdy;
-	-- wea(0) <= frame;
-	-- if (ramcount = '1') then
-	--     web_ram0 = '0'
-    --     web_ram1 = '1'
-	--     web_ram2 = '0'
-	--     web_ram3 = '0'
-    -- end if;
+	addr_a <= std_logic_vector(hcount);
 
 	------------------------------------------------------------------
 	-- TODO: Broken Buffer chain code
@@ -162,89 +163,6 @@ begin
 	-- 	clkb_i=>fclk,web_i=>web(3),addrb_i=>addrb3,datab_i=>datab3,datab_o=>open
 	-- );
 
-	-- process(rdy) -- RAM input (read from ADC) enable sequence
-	-- begin
-	-- 	if rising_edge(rdy) then
-	-- 		if (std_logic_vector(adc_count)=b"11" and wea(3)='1') or 
-	-- 			(std_logic_vector(adc_count)=b"00" and wea(0)='0') then     -- on ram0
-	-- 			web<=(0=>rdy,others=>'0');
-	-- 			adc_count <= adc_count + to_unsigned(1,2);
-	-- 			if (addrb0=std_logic_vector(to_unsigned(samples-1,10))) then
-	-- 				addrb0<=b"00_0000_0000";
-	-- 			else
-	-- 				addrb0<= std_logic_vector(unsigned(addrb0) + to_unsigned(1,10));
-	-- 			end if;
-	-- 		elsif std_logic_vector(adc_count)=b"01" and wea(1)='0'then  -- on ram1
-	-- 			web<=(1=>rdy,others=>'0');
-	-- 			adc_count <= adc_count + to_unsigned(1,2);
-	-- 			if (addrb1=std_logic_vector(to_unsigned(samples-1,10))) then
-	-- 				addrb1<=b"00_0000_0000";
-	-- 			else
-	-- 				addrb1<= std_logic_vector(unsigned(addrb1) + to_unsigned(1,10));
-	-- 			end if;
-	-- 		elsif std_logic_vector(adc_count)=b"10" and wea(2)='0'then  -- on ram2
-	-- 			web<=(2=>rdy,others=>'0');
-	-- 			adc_count <= adc_count + to_unsigned(1,2);
-	-- 			if (addrb2=std_logic_vector(to_unsigned(samples-1,10))) then
-	-- 				addrb2<=b"00_0000_0000";
-	-- 			else
-	-- 				addrb2<= std_logic_vector(unsigned(addrb2) + to_unsigned(1,10));
-	-- 			end if;
-	-- 		else										  -- on ram3
-	-- 			web<=(3=>rdy,others=>'0');									  
-	-- 			adc_count <= to_unsigned(0,2);
-	-- 			if (addrb3=std_logic_vector(to_unsigned(samples-1,10))) then
-	-- 				addrb3<=b"00_0000_0000";
-	-- 			else
-	-- 				addrb3<= std_logic_vector(unsigned(addrb3) + to_unsigned(1,10));
-	-- 			end if;
-	-- 		end if;
-	-- 	end if;
-	-- end process;
-
-	-- process(frame) -- RAM output (write to VGA) enable sequence
-	-- begin
-	-- 	if rising_edge(frame) then
-	-- 		if web=b"0001" then
-	-- 			if wea=b"1000" then
-	-- 				wea<=b"0100";
-	-- 				datab2<=datab;
-	-- 			else 
-	-- 				wea<=b"1000";
-	-- 				datab3<=datab;
-	-- 			end if;
-	-- 			--wea<=b"0100" when wea=b"1000" else b"1000"
-	-- 		elsif web=b"0010" then
-	-- 			if wea=b"0001" then
-	-- 				wea<=b"1000";
-	-- 				datab3<=datab;
-	-- 			else 
-	-- 				wea<=b"0001";
-	-- 				datab0<=datab;
-	-- 			end if;
-	-- 			--wea<=b"1000" when wea=b"0001" else b"0001"
-	-- 		elsif web=b"0100" then
-	-- 			if wea=b"0010" then
-	-- 				wea<=b"0001";
-	-- 				datab0<=datab;
-	-- 			else 
-	-- 				wea<=b"0010";
-	-- 				datab1<=datab;
-	-- 			end if;
-	-- 			--wea<=b"0001" when wea=b"0010" else b"0010"
-	-- 		else
-	-- 			if wea=b"0100" then
-	-- 				wea<=b"0010";
-	-- 				datab1<=datab;
-	-- 			else 
-	-- 				wea<=b"0100";
-	-- 				datab2<=datab;
-	-- 			end if;
-	-- 			--wea<=b"0010" when wea=b"0100" else wea=b"0100"
-	-- 		end if;
-	-- 	end if;
-	-- end process;
-
 	------------------------------------------------------------------
 	-- Working RAM Code from Lab 5
 	------------------------------------------------------------------
@@ -263,14 +181,11 @@ begin
 	begin
 		if rising_edge(fclk) then
 			counter <= counter + to_unsigned(1,11);
-		
 			if (counter = "10000010000") then
 				out31 <= not out31;
 				counter <= b"00000000001";
 			end if;
-
 		end if;
-		
 	end process;	
 	
 	--CONTINUE WITH VGA DISPLAY SYSTEM--
@@ -412,68 +327,40 @@ begin
     ------------------------------------------------------------------
 	-- VGA Output: Grid, Trace
 	------------------------------------------------------------------
-    process(clkfx,obj2_red,obj2_grn,obj2_blu)
+    process(clkfx,grd_red,grd_blu,grd_grn,line_red,line_grn,line_blu)
     begin
         if rising_edge(clkfx) then
-            if (hcount=80) or
-               (hcount=160) or
-               (hcount=240) or
-               (hcount=320) or
-               (hcount=400) or
-               (hcount=480) or
-               (hcount=560) or
-               (vcount=80) or
-               (vcount=160) or
-               (vcount=240) or
-               (vcount=320) or
-               (vcount=400) or
-               (vcount=480) then  
-                obj1_red<=b"01";
-                obj1_grn<=b"01";
-                obj1_blu<=b"01";
+            if vcount>=grid_top and vcount<=grid_bottom and hcount>=grid_left and hcount<=grid_right and
+				(vcount=grid_top or vcount=138 or vcount=grid_bottom or hcount=grid_left or hcount=170 or hcount=grid_right) then
+				grd_red<=b"01";            
+				grd_grn<=b"01";
+				grd_blu<=b"01";
             else
-                obj1_red<=b"00";            
-                obj1_grn<=b"00";
-                obj1_blu<=b"00";
+                grd_red<=b"00";            
+                grd_grn<=b"00";
+                grd_blu<=b"00";
             end if;
---			-- Hard code green horizontal line centre of screen
---			 if (vcount=240) then
---			 	obj2_red<=b"00";
---			 	obj2_grn<=b"11";
---			 	obj2_blu<=b"00";
---			 else
---			 	obj2_red<=b"00";
---			 	obj2_grn<=b"00";
---			 	obj2_blu<=b"00";
---			 end if;
---			if (vcount=(480*(1-unsigned(dataa(11 downto 0))/4095))) then
---				obj2_red<=b"00";
---				obj2_grn<=b"11";
---				obj2_blu<=b"00";
---			else
---				obj2_red<=b"00";
---				obj2_grn<=b"00";
---				obj2_blu<=b"00";
---			end if;
-			 if (vcount = 525 - to_integer(5 + 10*unsigned(dataa(11 downto 0)))/78) then
-			 	obj2_red<=b"00";            
-			 	obj2_grn<=b"11";
-			 	obj2_blu<=b"00";
-			 else
-			 	obj2_red<=b"00";
-			 	obj2_grn<=b"00";
-			 	obj2_blu<=b"00";
-			 end if;
+			
+            if vcount>=grid_top and vcount<=grid_bottom and hcount>=grid_left and hcount<=grid_right and 
+				vcount=(10+grid_width-unsigned(dataa(11 downto 0))/(4096/grid_width)) then
+				line_red<=b"00";            
+				line_grn<=b"11";
+				line_blu<=b"00";
+			else
+				line_red<=b"00";            
+				line_grn<=b"00";
+				line_blu<=b"00";
+			end if;
         end if;
 		-- Make trace appear before grid
-        if (obj2_red=b"00" and obj2_grn=b"00" and obj2_blu=b"00") then
-            screen_red <= obj1_red;
-            screen_grn <= obj1_grn;
-            screen_blu <= obj1_blu;
+        if (line_red=b"00" and line_grn=b"00" and line_blu=b"00") then
+            screen_red <= grd_red;
+            screen_grn <= grd_grn;
+            screen_blu <= grd_blu;
 	    else
-            screen_red <= obj2_red;
-            screen_grn <= obj2_grn;
-            screen_blu <= obj2_blu;
+            screen_red <= line_red;
+            screen_grn <= line_grn;
+            screen_blu <= line_blu;
 	end if;
     end process;
 	------------------------------------------------------------------

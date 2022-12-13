@@ -71,28 +71,13 @@ architecture arch of Oscilliscope is
 	signal fclk:    std_logic;
 	signal rdy:  	std_logic;
 	signal out31: 	std_logic;
-	signal wea: 	std_logic;
 	signal web: 	std_logic;
 	signal counter: unsigned(10 downto 0):= b"00000000001";
 	signal addra: 	std_logic_vector(9 downto 0); -- driven by gui
 	signal addr_a:	std_logic_vector(9 downto 0); -- driven by VGA hcount
 	signal dataa: 	std_logic_vector(35 downto 0); -- from RAM ...
-	-- signal dataa0: 	std_logic_vector(35 downto 0);
-	-- signal dataa1: 	std_logic_vector(35 downto 0);
-	-- signal dataa2: 	std_logic_vector(35 downto 0);
-	-- signal dataa3: 	std_logic_vector(35 downto 0);
 	signal addrb: 	std_logic_vector(9 downto 0);
-	-- signal addrb0: 	std_logic_vector(9 downto 0);
-	-- signal addrb1: 	std_logic_vector(9 downto 0);
-	-- signal addrb2: 	std_logic_vector(9 downto 0);
-	-- signal addrb3: 	std_logic_vector(9 downto 0);
 	signal datab: 	std_logic_vector(35 downto 0); -- from ADC ...
-	-- signal datab0: 	std_logic_vector(35 downto 0);
-	-- signal datab1: 	std_logic_vector(35 downto 0);
-	-- signal datab2: 	std_logic_vector(35 downto 0);
-	-- signal datab3: 	std_logic_vector(35 downto 0);
-	-- signal adc_count: unsigned(1 downto 0):=to_unsigned(0,2);
-
 	--VGA --
 	signal clkfb:    std_logic;
 	signal clkfx:    std_logic;
@@ -124,7 +109,6 @@ begin
 	                port map(clk=>clk,rx=>rx,tx=>tx,addr=>addra,data=>dataa(11 downto 0));
 	cmt:  Oscilliscope_cmt port map(clk_i=>clk,clk_o=>fclk);
 	adc:  Oscilliscope_adc port map(clk=>fclk,vaux5_n=>vaux5_n,vaux5_p=>vaux5_p,rdy=>rdy,data=>datab(11 downto 0));
-	
 	ram0: Oscilliscope_ram port map(
 		clka_i=>clk,  -- port A read only output to VGA
 		wea_i=>'0',
@@ -138,34 +122,15 @@ begin
 		datab_o=>open 
     );
 
-	pio31 <= out31;
-	web <= rdy;
+	------------------------------------------------------------------
+	-- TODO: Buffer chain code
+	------------------------------------------------------------------
 	addr_a <= std_logic_vector(hcount);
-
-	------------------------------------------------------------------
-	-- TODO: Broken Buffer chain code
-	------------------------------------------------------------------
-
-	-- ram0: Oscilliscope_ram port map(
-	-- 	clka_i=>clk,wea_i=>wea(0),addra_i=>addra,dataa_i=>(others=>'0'),dataa_o=>dataa0, -- port A output to VGA
-	-- 	clkb_i=>fclk,web_i=>web(0),addrb_i=>addrb0,datab_i=>datab0,datab_o=>open          -- port B input from ADC
-    -- );
-	-- ram1: Oscilliscope_ram port map(
-	-- 	clka_i=>clk,wea_i=>wea(1),addra_i=>addra,dataa_i=>(others=>'0'),dataa_o=>dataa1,
-	-- 	clkb_i=>fclk,web_i=>web(1),addrb_i=>addrb1,datab_i=>datab1,datab_o=>open
-	-- );
-	-- ram2: Oscilliscope_ram port map(
-	-- 	clka_i=>clk,wea_i=>wea(2),addra_i=>addra,dataa_i=>(others=>'0'),dataa_o=>dataa2,
-	-- 	clkb_i=>fclk,web_i=>web(2),addrb_i=>addrb2,datab_i=>datab2,datab_o=>open
-	-- );
-	-- ram3: Oscilliscope_ram port map(
-	-- 	clka_i=>clk,wea_i=>wea(3),addra_i=>addra,dataa_i=>(others=>'0'),dataa_o=>dataa3,
-	-- 	clkb_i=>fclk,web_i=>web(3),addrb_i=>addrb3,datab_i=>datab3,datab_o=>open
-	-- );
 
 	------------------------------------------------------------------
 	-- Increment addrb of ram0 
 	------------------------------------------------------------------
+	web <= rdy;
 	process(rdy) 
 	begin
 		if rising_edge(rdy) then
@@ -176,8 +141,10 @@ begin
 			end if;
 		end if;
 	end process;
-
+	------------------------------------------------------------------
 	-- Generate square wave
+	------------------------------------------------------------------
+	pio31 <= out31;
 	process(fclk) 
 	begin
 		if rising_edge(fclk) then

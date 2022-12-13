@@ -164,7 +164,7 @@ begin
 	-- );
 
 	------------------------------------------------------------------
-	-- Working RAM Code from Lab 5
+	-- Increment addrb of ram0 
 	------------------------------------------------------------------
 	process(rdy) 
 	begin
@@ -176,8 +176,9 @@ begin
 			end if;
 		end if;
 	end process;
-	
-	process(fclk) -- create square wave
+
+	-- Generate square wave
+	process(fclk) 
 	begin
 		if rising_edge(fclk) then
 			counter <= counter + to_unsigned(1,11);
@@ -330,8 +331,10 @@ begin
     process(clkfx,grd_red,grd_blu,grd_grn,line_red,line_grn,line_blu)
     begin
         if rising_edge(clkfx) then
+			-- Draw grid
             if vcount>=grid_top and vcount<=grid_bottom and hcount>=grid_left and hcount<=grid_right and
-				(vcount=grid_top or vcount=138 or vcount=grid_bottom or hcount=grid_left or hcount=170 or hcount=grid_right) then
+				(vcount=grid_top or vcount=grid_top+grid_height/2 or vcount=grid_bottom or hcount=grid_left or hcount=grid_left+grid_width/2 or hcount=grid_right or
+				 vcount=grid_top+grid_height/4 or vcount=grid_top+3*grid_height/4 or hcount=grid_left+grid_width/4 or hcount=grid_left+3*grid_width/4) then
 				grd_red<=b"01";            
 				grd_grn<=b"01";
 				grd_blu<=b"01";
@@ -341,6 +344,7 @@ begin
                 grd_blu<=b"00";
             end if;
 			
+			-- Draw line/trace using one RAM block (ram0)
             if vcount>=grid_top and vcount<=grid_bottom and hcount>=grid_left and hcount<=grid_right and 
 				vcount=(10+grid_width-unsigned(dataa(11 downto 0))/(4096/grid_width)) then
 				line_red<=b"00";            
@@ -352,6 +356,7 @@ begin
 				line_blu<=b"00";
 			end if;
         end if;
+
 		-- Make trace appear before grid
         if (line_red=b"00" and line_grn=b"00" and line_blu=b"00") then
             screen_red <= grd_red;

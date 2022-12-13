@@ -171,6 +171,7 @@ begin
 	-- TODO: potential timing issue between frame and rdy signals, causing:
 	--		 1) vga to not select most recent data, or 
 	-- 		 2) adc to jump to ram used by vga (if vga loc updates right as adc switches)
+	-- TODO: use LEDs to show [adc/vga]_loc for debugging
 	------------------------------------------------------------------
 	addr_a <= std_logic_vector(hcount);
 	-- * Switch ram block to read from after each frame * --

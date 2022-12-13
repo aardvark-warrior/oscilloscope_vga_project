@@ -6,7 +6,9 @@ use UNISIM.vcomponents.all;
 
 entity Oscilliscope is
 	port(
-	    --Oscilliscope
+		btn: in  std_logic_vector(1 downto 0);
+		led: out std_logic_vector(3 downto 0);
+		--Oscilliscope
 		clk:     in  std_logic;
 		vaux5_n: in  std_logic;
 		vaux5_p: in  std_logic;
@@ -67,7 +69,7 @@ architecture arch of Oscilliscope is
 		);
 	end component;
 	
-	constant samples: natural:=4096;
+	constant samples: natural:=480;
 	signal fclk:    std_logic;
 	signal rdy:  	std_logic;
 	signal out31: 	std_logic;
@@ -76,16 +78,17 @@ architecture arch of Oscilliscope is
 	signal addra: 	std_logic_vector(9 downto 0); 	-- driven by gui
 	signal addr_a:	std_logic_vector(9 downto 0); 	-- driven by VGA hcount
 	signal dataa: 	std_logic_vector(35 downto 0); 	-- from RAM ...
-	signal dataa0: 	std_logic_vector(35 downto 0); 	
-	signal dataa1: 	std_logic_vector(35 downto 0); 	
-	signal dataa2: 	std_logic_vector(35 downto 0); 	
-	signal dataa3: 	std_logic_vector(35 downto 0); 	
 	signal addrb: 	std_logic_vector(9 downto 0);
 	signal datab: 	std_logic_vector(35 downto 0); 	-- from ADC ...
 	signal adc_loc: unsigned(1 downto 0):=b"00";	-- track adc location in buffer chain
 	signal vga_loc: unsigned(1 downto 0):=b"00";	-- track vga location in buffer chain
 	signal adc_loc_next: unsigned(1 downto 0);
 	signal vga_loc_next: unsigned(1 downto 0);
+	signal dataa0: 	std_logic_vector(35 downto 0); 	
+	signal dataa1: 	std_logic_vector(35 downto 0); 	
+	signal dataa2: 	std_logic_vector(35 downto 0); 	
+	signal dataa3: 	std_logic_vector(35 downto 0); 	
+
 	--VGA --
 	signal clkfb:    std_logic;
 	signal clkfx:    std_logic;
@@ -103,12 +106,15 @@ architecture arch of Oscilliscope is
 	signal screen_grn: std_logic_vector(1 downto 0):=(others=>'0');
 	signal screen_blu: std_logic_vector(1 downto 0):=(others=>'0');
 	--Dimensions of scope grid--
-	signal grid_top: 	unsigned(9 downto 0):=to_unsigned(10,10);
-	signal grid_left: 	unsigned(9 downto 0):=to_unsigned(10,10);
-	signal grid_bottom: unsigned(9 downto 0):=to_unsigned(265,10); -- 10 + (256-1)
-	signal grid_right: 	unsigned(9 downto 0):=to_unsigned(329,10); -- 10 + (330-1)
-	signal grid_width: unsigned(9 downto 0):=to_unsigned(330,10);
+	signal grid_top: 	unsigned(9 downto 0):=to_unsigned(0,10);
+	signal grid_left: 	unsigned(9 downto 0):=to_unsigned(0,10);
+	signal grid_bottom: unsigned(9 downto 0):=to_unsigned(256,10); -- 10 + (256-1)
+	signal grid_right: 	unsigned(9 downto 0):=to_unsigned(480,10); -- 10 + (330-1)
+	signal grid_width: 	unsigned(9 downto 0):=to_unsigned(480,10);
 	signal grid_height: unsigned(9 downto 0):=to_unsigned(256,10);
+
+	signal btn_shift: 	std_logic_vector(7 downto 0):=(others=>'0');
+	signal ram_led:   	std_logic_vector(3 downto 0);
 
 begin
     --BEGIN WITH OSCILLISCOPE MEASUREMENT
@@ -171,11 +177,10 @@ begin
 	-- TODO: potential timing issue between frame and rdy signals, causing:
 	--		 1) vga to not select most recent data, or 
 	-- 		 2) adc to jump to ram used by vga (if vga loc updates right as adc switches)
-	-- TODO: use LEDs to show [adc/vga]_loc for debugging
 	------------------------------------------------------------------
 	addr_a <= std_logic_vector(hcount);
-	-- * Switch ram block to read from after each frame * --
-	process(frame,adc_loc)
+	--* Switch ram block to read from after each frame * --
+	process(clkfx) -- frame,adc_loc
 	begin
 		-- Select ram most-recently used by adc as next vga_loc
 		if vga_loc=adc_loc-1 then
@@ -184,25 +189,36 @@ begin
 			vga_loc_next <= adc_loc-1;
 		end if;
 		
-		if rising_edge(frame) then
-			vga_loc <= vga_loc_next;	-- Only update vga_loc on every new frame
-			if vga_loc_next=to_unsigned(0,2) then
-				dataa <= dataa0;
-			elsif vga_loc_next<=to_unsigned(1,2) then
-				dataa <= dataa1;
-			elsif vga_loc_next<=to_unsigned(2,2) then
-				dataa <= dataa2;
+		if rising_edge(clkfx) then
+			if frame='1' then
+				vga_loc <= vga_loc_next;	-- Only update vga_loc on every new frame
+				if vga_loc_next=to_unsigned(0,2) then
+					dataa <= dataa0;
+				elsif vga_loc_next<=to_unsigned(1,2) then
+					dataa <= dataa1;
+				elsif vga_loc_next<=to_unsigned(2,2) then
+					dataa <= dataa2;
+				else
+					dataa <= dataa3;
+				end if;
 			else
-				dataa <= dataa3;
+				if vga_loc=to_unsigned(0,2) then
+					dataa <= dataa0;
+				elsif vga_loc<=to_unsigned(1,2) then
+					dataa <= dataa1;
+				elsif vga_loc<=to_unsigned(2,2) then
+					dataa <= dataa2;
+				else
+					dataa <= dataa3;
+				end if;
 			end if;
 		end if;
 	end process;
-
 	------------------------------------------------------------------
 	-- ADC to Buffer Chain logic
 	------------------------------------------------------------------
-	-- web <= rdy;
-	process(rdy,vga_loc) 
+	led <= ram_led;
+	process(fclk) 
 	begin
 		-- Select next ram in buffer chain, skipping vga_loc
 		if adc_loc=vga_loc-1 then
@@ -211,39 +227,70 @@ begin
 			adc_loc_next <= adc_loc+1;
 		end if;
 
-		if rising_edge(rdy) then
-			if (addrb=std_logic_vector(to_unsigned(samples-1,10))) then
-				addrb<=b"00_0000_0000";
-				adc_loc <= adc_loc_next;	-- Only update adc_loc when finished writing a ram block
-				if adc_loc_next=to_unsigned(0,2) then
-					web <= (0=>rdy,others=>'0');
-				elsif adc_loc_next=to_unsigned(1,2) then
-					web <= (1=>rdy,others=>'0');
-				elsif adc_loc_next=to_unsigned(2,2) then
-					web <= (2=>rdy,others=>'0');
+		-- * Write to incremented address of ram block at rising edge of rdy * --
+		if rising_edge(fclk) then -- rdy is synced with fclk
+			if rdy='1' then
+				if (addrb=std_logic_vector(to_unsigned(samples-1,10))) then
+					addrb<=b"00_0000_0000";
+					adc_loc <= adc_loc_next;	-- Only update adc_loc when finished writing a ram block
+					if adc_loc_next=to_unsigned(0,2) then
+						web <= (0=>rdy,others=>'0');
+					elsif adc_loc_next=to_unsigned(1,2) then
+						web <= (1=>rdy,others=>'0');
+					elsif adc_loc_next=to_unsigned(2,2) then
+						web <= (2=>rdy,others=>'0');
+					else
+						web <= (3=>rdy,others=>'0');
+					end if;
 				else
-					web <= (3=>rdy,others=>'0');
+					addrb<=std_logic_vector(unsigned(addrb) + to_unsigned(1,10));
+					if adc_loc=to_unsigned(0,2) then
+						web <= (0=>rdy,others=>'0');
+						ram_led <= b"0001";
+					elsif adc_loc=to_unsigned(1,2) then
+						web <= (1=>rdy,others=>'0');
+						ram_led <= b"0010";
+					elsif adc_loc=to_unsigned(2,2) then
+						web <= (2=>rdy,others=>'0');
+						ram_led <= b"0100";
+					else
+						web <= (3=>rdy,others=>'0');
+						ram_led <= b"1000";
+					end if;
 				end if;
 			else
-				addrb<= std_logic_vector(unsigned(addrb) + to_unsigned(1,10));
+				web <= b"0000";
 			end if;
 		end if;
 	end process;
 
 	------------------------------------------------------------------
-	-- Generate square wave
+	-- Generate output signal: square wave
 	------------------------------------------------------------------
 	pio31 <= out31;
+	-- * Test_sig_1: square wave alternate every 1040-1 counts * --
 	process(fclk) 
 	begin
 		if rising_edge(fclk) then
 			counter <= counter + to_unsigned(1,11);
-			if (counter = "10000010000") then
+			if (counter = "10000010000") then -- 1040
 				out31 <= not out31;
 				counter <= b"00000000001";
 			end if;
 		end if;
 	end process;	
+
+	-- * Test_sig_2: square wave alternate every 1280-1 counts * --
+	-- process(fclk) 
+	-- begin
+	-- 	if rising_edge(fclk) then
+	-- 		counter <= counter + to_unsigned(1,11);
+	-- 		if (counter = "10100000000") then
+	-- 			out31 <= not out31;
+	-- 			counter <= b"00000000001";
+	-- 		end if;
+	-- 	end if;
+	-- end process;	
 	
 	--CONTINUE WITH VGA DISPLAY SYSTEM--
 	tvx<='1';
@@ -313,7 +360,7 @@ begin
 		CLKOUT5=>open,   -- 1-bit output: CLKOUT5
 		CLKOUT6=>open,   -- 1-bit output: CLKOUT6
 		-- Clock Feedback Output Ports:
-		CLKFBOUT=>clkfb,-- 1-bit output: Feedback clock
+		CLKFBOUT=>clkfb, -- 1-bit output: Feedback clock
 		CLKFBOUTB=>open, -- 1-bit output: Inverted CLKFBOUT
 		-- MMCM Status Ports:
 		LOCKED=>open,    -- 1-bit output: LOCK
@@ -389,13 +436,19 @@ begin
         if rising_edge(clkfx) then
 			-- Draw grid
             if vcount>=grid_top and vcount<=grid_bottom and hcount>=grid_left and hcount<=grid_right and
-				(vcount=grid_top or vcount=grid_top+grid_height/2 or vcount=grid_bottom or 
-				 hcount=grid_left or hcount=grid_left+grid_width/2 or hcount=grid_right or
-				 vcount=grid_top+grid_height/4 or vcount=grid_top+3*grid_height/4 or 
-				 hcount=grid_left+grid_width/4 or hcount=grid_left+3*grid_width/4) then
+				(vcount=grid_top+grid_height/4 or vcount=grid_top+3*grid_height/4 or 
+				 hcount=grid_left+grid_width/4 or hcount=grid_left+3*grid_width/4 or
+				 hcount=grid_left+grid_width/8 or hcount=grid_left+3*grid_width/8 or
+				 hcount=grid_left+5*grid_width/8 or hcount=grid_left+7*grid_width/8) then
 				grd_red<=b"01";            
 				grd_grn<=b"01";
 				grd_blu<=b"01";
+			elsif vcount>=grid_top and vcount<=grid_bottom and hcount>=grid_left and hcount<=grid_right and 
+				(vcount=grid_top or vcount=grid_top+grid_height/2 or vcount=grid_bottom or 
+				 hcount=grid_left or hcount=grid_left+grid_width/2 or hcount=grid_right) then
+				grd_red<=b"10";
+				grd_grn<=b"10";
+				grd_blu<=b"10";
             else
                 grd_red<=b"00";            
                 grd_grn<=b"00";
@@ -404,7 +457,7 @@ begin
 			
 			-- Draw line/trace using one RAM block (ram0)
             if vcount>=grid_top and vcount<=grid_bottom and hcount>=grid_left and hcount<=grid_right and 
-				vcount=(10+grid_width-unsigned(dataa(11 downto 0))/(4096/grid_width)) then
+				vcount=(grid_top+grid_height-unsigned(dataa(11 downto 0))/(4096/grid_height)) then
 				line_red<=b"00";            
 				line_grn<=b"11";
 				line_blu<=b"00";

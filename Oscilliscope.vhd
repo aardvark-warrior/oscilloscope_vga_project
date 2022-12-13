@@ -10,7 +10,7 @@ entity Oscilliscope is
 		clk:     in  std_logic;
 		vaux5_n: in  std_logic;
 		vaux5_p: in  std_logic;
-		pio31:   out std_logic;  -- square wave signal; 30 detects signal
+		pio31:   out std_logic;  -- square wave signal; pin 30 detects signal (first white circle)
 		rx:      in  std_logic;
 		tx:      out std_logic;
 		
@@ -43,7 +43,7 @@ architecture arch of Oscilliscope is
 			vaux5_n: in  std_logic;
 			vaux5_p: in  std_logic;
 			rdy:     out std_logic;
-			data:    out std_logic_vector(11 downto 0) -- XADC output to RAM => dataa_i; represents scope reading at one time point
+			data:    out std_logic_vector(11 downto 0) -- represents scope reading at one any point in time
 		);
 	end component;
 	component Oscilliscope_ram is
@@ -67,7 +67,7 @@ architecture arch of Oscilliscope is
 		);
 	end component;
 	
-	constant samples: natural:=330;
+	constant samples: natural:=4096;
 	signal fclk:    std_logic;
 	signal rdy:  	std_logic;
 	signal out31: 	std_logic;
@@ -82,10 +82,6 @@ architecture arch of Oscilliscope is
 	signal dataa3: 	std_logic_vector(35 downto 0); 	
 	signal addrb: 	std_logic_vector(9 downto 0);
 	signal datab_: 	std_logic_vector(35 downto 0); 	-- from ADC ...
-	-- signal datab0: 	std_logic_vector(35 downto 0);
-	-- signal datab1: 	std_logic_vector(35 downto 0);
-	-- signal datab2: 	std_logic_vector(35 downto 0);
-	-- signal datab3: 	std_logic_vector(35 downto 0);
 	signal adc_loc: unsigned(1 downto 0):=b"00";	-- track adc location in buffer chain
 	signal vga_loc: unsigned(1 downto 0):=b"00";	-- track vga location in buffer chain
 	signal adc_loc_next: unsigned(1 downto 0);
@@ -129,50 +125,52 @@ begin
 		clkb_i=>fclk, 		
 		web_i=>web(0),     	--TODO: on rising_edge(rdy), select the right web-bit to wire to rdy, and set others to '0'
 		addrb_i=>addrb,     
-		datab_i=>datab_,     --TODO
+		datab_i=>datab_,    --TODO: might not work?
 		datab_o=>open 
     );
 	ram1: Oscilliscope_ram port map(
-		clka_i=>clk,  		-- port A read only output to VGA
+		clka_i=>clk,  		
 		wea_i=>'0',
-		addra_i=>addr_a, 	-- 10 bits
+		addra_i=>addr_a, 	
 		dataa_i=>(others=>'0'),
-		dataa_o=>dataa1,  	-- 36 bits
+		dataa_o=>dataa1,  	
 		clkb_i=>fclk, 		
-		web_i=>web(1),    	 	--TODO
+		web_i=>web(1),    	 	
 		addrb_i=>addrb,     
-		datab_i=>datab_,     --TODO
+		datab_i=>datab_,     
 		datab_o=>open 
     );
 	ram2: Oscilliscope_ram port map(
-		clka_i=>clk,  		-- port A read only output to VGA
+		clka_i=>clk,  		
 		wea_i=>'0',
-		addra_i=>addr_a, 	-- 10 bits
+		addra_i=>addr_a, 	
 		dataa_i=>(others=>'0'),
-		dataa_o=>dataa2,  	-- 36 bits
+		dataa_o=>dataa2,  	
 		clkb_i=>fclk, 		
-		web_i=>web(2),     	--TODO
+		web_i=>web(2),     	
 		addrb_i=>addrb,     
-		datab_i=>datab_,     --TODO
+		datab_i=>datab_,     
 		datab_o=>open 
     );
 	ram3: Oscilliscope_ram port map(
-		clka_i=>clk,  		-- port A read only output to VGA
+		clka_i=>clk,  		
 		wea_i=>'0',
-		addra_i=>addr_a, 	-- 10 bits
+		addra_i=>addr_a, 	
 		dataa_i=>(others=>'0'),
-		dataa_o=>dataa3,  	-- 36 bits
+		dataa_o=>dataa3,  	
 		clkb_i=>fclk, 		
-		web_i=>web(3),	     	--TODO
+		web_i=>web(3),	     	
 		addrb_i=>addrb,     
-		datab_i=>datab_,     --TODO
+		datab_i=>datab_,     
 		datab_o=>open 
     );
+
+	------------------------------------------------------------------
+	-- RAM from Buffer Chain logic
+	
 	-- TODO: potential timing issue between frame and rdy signals, causing:
 	--		 1) vga to not select most recent data, or 
 	-- 		 2) adc to jump to ram used by vga (if vga loc updates right as adc switches)
-	------------------------------------------------------------------
-	-- RAM from Buffer Chain logic
 	------------------------------------------------------------------
 	addr_a <= std_logic_vector(hcount);
 	-- * Switch ram block to read from after each frame * --

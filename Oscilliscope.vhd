@@ -67,7 +67,7 @@ architecture arch of Oscilliscope is
 		);
 	end component;
 	
-	constant samples: natural:=200;
+	constant samples: natural:=330;
 	signal fclk:    std_logic;
 	signal rdy:  	std_logic;
 	signal out31: 	std_logic;

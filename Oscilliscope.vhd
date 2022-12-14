@@ -25,7 +25,13 @@ entity Oscilliscope is
 		--Control buttons
 		pio23:	in	std_logic;
 		pio22:	in	std_logic;
-		pio21:	out std_logic
+		pio21:	out std_logic;
+		pio20:	in	std_logic;
+		pio19:	in	std_logic;
+		pio18:	out std_logic;
+		pio17:	in	std_logic;
+		pio16:	in	std_logic;
+		pio9:	out std_logic
 	);
 end Oscilliscope;
 
@@ -107,16 +113,20 @@ architecture arch of Oscilliscope is
 	signal screen_red: 	std_logic_vector(1 downto 0):=(others=>'0');  -- screen -> reading over grid
 	signal screen_grn: 	std_logic_vector(1 downto 0):=(others=>'0');
 	signal screen_blu: 	std_logic_vector(1 downto 0):=(others=>'0');
-	--Scaling and Shifting--
+	--Vertical scaling/shifting--
 	signal ratio: 		unsigned(9 downto 0);						-- adc_range(4096)/grid_height; 
 	signal scaled_sig:	unsigned(23 downto 0);  -- signal after stretch/gain (potentially 12 bits)
-	-- signal shf_signal:  signed(35 downto 0);  -- final signal after shifting; COMPARE to vcount
 	signal gn_state:	signed(7 downto 0):=(others=>'0');
 	signal gn_state_n:	signed(7 downto 0):=(others=>'0');
 	signal gain:		unsigned(11 downto 0):=to_unsigned(1,12);	-- TODO: find min number of bits needed
 	signal gain_next:	unsigned(11 downto 0):=to_unsigned(1,12);
 	signal v_shift:		signed(11 downto 0):=to_signed(0,12);
 	signal v_shift_next:signed(11 downto 0):=to_signed(0,12);
+	--Horizontal scaling/shifting--
+	-- signal t_scale:		unsigned(9 downto 0):=to_unsigned(1,10);
+	signal h_shift:		signed(9 downto 0):=to_signed(0,10);
+	signal h_shift_next:signed(9 downto 0):=to_signed(0,10);
+	signal ram_idx:		std_logic_vector(9 downto 0);
 	-- signal str_hcount:	unsigned(11 downto 0);
 	-- signal shf_hcount:	signed(11 downto 0);  -- final hcount after shifting; USE to index RAM
 	-- signal h_stretch:   unsigned(11 downto 0):=to_unsigned(1,12);
@@ -130,7 +140,7 @@ architecture arch of Oscilliscope is
 	signal grid_height: unsigned(9 downto 0):=to_unsigned(256,10);
 	--Button shift registers-- upper 4 bits shift from 4->7, lower 4 shift 3->0
 	signal ud_btn_sh: 	std_logic_vector(7 downto 0):=(others=>'0'); -- upper 4 bits (shift up), 		lower 4 bits (shift down)
-	-- signal lr_btn_sh:   std_logic_vector(7 downto 0):=(others=>'0'); -- upper 4 bits (shift left), 		lower 4 bits (shift right)
+	signal lr_btn_sh:   std_logic_vector(7 downto 0):=(others=>'0'); -- upper 4 bits (shift left), 		lower 4 bits (shift right)
 	signal vs_btn_sh:	std_logic_vector(7 downto 0):=(others=>'0'); -- upper 4 bits (voltage scale up),lower 4 bits (scale down)
 	-- signal ts_btn_sh:   std_logic_vector(7 downto 0):=(others=>'0'); -- upper 4 bits (time stretch), 	lower 4 bits (time compress)
 	signal ram_led:   	std_logic_vector(3 downto 0);
@@ -192,28 +202,53 @@ begin
 
 	------------------------------------------------------------------
 	-- Button Metastability Logic
+	-- TODO: add debouncing
+		-- TODO: improve h_stretch by stretching about centre of screen (not y-axis)
+		-- Basic idea:
+			-- Vertical stretch   -> multiply/divide dataa (before comparing to vcount)
+			-- Vertical shift 	  -> add/subtract dataa
+			-- Horizontal stretch -> mutiply/divide hcount (index into RAM)
+			-- Horizontal shift   -> add/subtract hcount
 	------------------------------------------------------------------
-	pio21 <= '1';
+	pio21 <= '1'; -- btns pio23,22
+	pio18 <= '1'; -- btns pio20,19
+	pio9  <= '1'; -- btns pio17,16
 	process(clkfx)
 	begin
 		if rising_edge(clkfx) then
+			lr_btn_sh(4)<=pio20; -- upper 4 bits for LEFT shift button
+			lr_btn_sh(5)<=lr_btn_sh(4);
+			lr_btn_sh(6)<=lr_btn_sh(5);
+			lr_btn_sh(7)<=lr_btn_sh(6); -- use bits 7,6 for edge detection
+			lr_btn_sh(3)<=pio19; -- lower 4 bits for RIGHT shift button
+			lr_btn_sh(2)<=lr_btn_sh(3);
+			lr_btn_sh(1)<=lr_btn_sh(2);
+			lr_btn_sh(0)<=lr_btn_sh(1); -- use bits 0,1 for edge detection
+			if lr_btn_sh(7)='0' and lr_btn_sh(6)='1' then
+				h_shift_next<=h_shift+to_signed(-5,10);
+			end if;
+			if lr_btn_sh(0)='0' and lr_btn_sh(1)='1' then
+				h_shift_next<=h_shift+to_signed(5,10);
+			end if;
+			if frame='1' then
+				h_shift<=h_shift_next;
+			end if;
+		---*** DO NOT TOUCH: Works! ***---
 			--Up/Down Buttons--
-			ud_btn_sh(4)<=pio23; -- upper 4 bits for up shift button
+			ud_btn_sh(4)<=pio23; -- upper 4 bits for UP shift button
 			ud_btn_sh(5)<=ud_btn_sh(4);
 			ud_btn_sh(6)<=ud_btn_sh(5);
 			ud_btn_sh(7)<=ud_btn_sh(6); -- use bits 7,6 for edge detection
-			ud_btn_sh(3)<=pio22; -- lower 4 bits for down shift button
+			ud_btn_sh(3)<=pio22; -- lower 4 bits for DOWN shift button
 			ud_btn_sh(2)<=ud_btn_sh(3);
 			ud_btn_sh(1)<=ud_btn_sh(2);
 			ud_btn_sh(0)<=ud_btn_sh(1); -- use bits 0,1 for edge detection
 			if ud_btn_sh(7)='0' and ud_btn_sh(6)='1' then
 				v_shift_next<=v_shift+to_signed(-5,12);
 			end if;
-			
 			if ud_btn_sh(0)='0' and ud_btn_sh(1)='1' then
 				v_shift_next<=v_shift+to_signed(5,12);
 			end if;
-
 			if frame='1' then
 				v_shift<=v_shift_next;
 			end if;
@@ -247,28 +282,19 @@ begin
 					gain_next <= to_unsigned(1,12);
 				end if;
 			end if;
-
 			if frame='1' then
 				gn_state<=gn_state_n;
 				gain<=gain_next;
 			end if;
 		end if;
-		-- TODO: add debouncing
-
-		-- TODO: add edge detection to shift up
-
-		-- TODO: improve h_stretch by stretching about centre of screen (not y-axis)
-
-		-- Basic idea:
-			-- Vertical stretch   -> multiply/divide dataa (before comparing to vcount)
-			-- Vertical shift 	  -> add/subtract dataa
-			-- Horizontal stretch -> mutiply/divide hcount (index into RAM)
-			-- Horizontal shift   -> add/subtract hcount
 	end process;
+
 	------------------------------------------------------------------
 	-- RAM from Buffer Chain logic
 	------------------------------------------------------------------
-	addr_a <= std_logic_vector(hcount);
+	addr_a <= ram_idx; --std_logic_vector(hcount);
+	-- ram_idx <= hcount*t_scale + h_shift;
+	ram_idx <= std_logic_vector(signed(hcount) + h_shift);
 	--* Switch ram block to read from after each frame * --
 	process(clkfx) -- clkfx from cmt2 25.2 MHz for VGA
 	begin
@@ -369,21 +395,8 @@ begin
 				counter <= b"00000000001";
 			end if;
 		end if;
-	end process;	
+	end process;
 
-	-- * Test_sig_2: square wave alternate every 1280-1 counts * --
-	-- process(fclk) 
-	-- begin
-	-- 	if rising_edge(fclk) then
-	-- 		counter <= counter + to_unsigned(1,11);
-	-- 		if (counter = "10100000000") then
-	-- 			out31 <= not out31;
-	-- 			counter <= b"00000000001";
-	-- 		end if;
-	-- 	end if;
-	-- end process;	
-	
-	--CONTINUE WITH VGA DISPLAY SYSTEM--
 	tvx<='1';
 	------------------------------------------------------------------
 	-- Clock management tile

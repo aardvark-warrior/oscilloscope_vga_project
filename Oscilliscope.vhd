@@ -111,11 +111,11 @@ architecture arch of Oscilliscope is
 	signal grid_right: 	unsigned(9 downto 0):=to_unsigned(480,10); -- 10 + (330-1)
 	signal grid_width: 	unsigned(9 downto 0):=to_unsigned(480,10);
 	signal grid_height: unsigned(9 downto 0):=to_unsigned(256,10);
-	-- Button and LEDs --
-	signal ud_btn_sh: 	std_logic_vector(7 downto 0):=(others=>'0'); -- up (top 4 bits), down (lower 4 bits)
-	signal lr_btn_sh:   std_logic_vector(7 downto 0):=(others=>'0'); -- left (top 4 bits), right (lower 4 bits)
-	signal vs_btn_sh:	std_logic_vector(7 downto 0):=(others=>'0'); -- voltage scale up (top 4 bits), v scale down (lower 4 bits)
-	signal ts_btn_sh:   std_logic_vector(7 downto 0):=(others=>'0'); -- time stretch (top 4 bits), time compress (lower 4 bits)
+	--Button shift registers-- upper 4 bits shift from 4->7, lower 4 shift 3->0
+	signal ud_btn_sh: 	std_logic_vector(7 downto 0):=(others=>'0'); -- upper 4 bits (shift up), 		lower 4 bits (shift down)
+	signal lr_btn_sh:   std_logic_vector(7 downto 0):=(others=>'0'); -- upper 4 bits (shift left), 		lower 4 bits (shift right)
+	signal vs_btn_sh:	std_logic_vector(7 downto 0):=(others=>'0'); -- upper 4 bits (voltage scale up),lower 4 bits (scale down)
+	signal ts_btn_sh:   std_logic_vector(7 downto 0):=(others=>'0'); -- upper 4 bits (time stretch), 	lower 4 bits (time compress)
 	signal ram_led:   	std_logic_vector(3 downto 0);
 
 begin
@@ -131,9 +131,9 @@ begin
 		dataa_i=>(others=>'0'),
 		dataa_o=>dataa0,  	-- 36 bits
 		clkb_i=>fclk, 		
-		web_i=>web(0),     	--TODO: on rising_edge(rdy), select the right web-bit to wire to rdy, and set others to '0'
+		web_i=>web(0),     
 		addrb_i=>addrb,     
-		datab_i=>datab,    --TODO: might not work?
+		datab_i=>datab,    
 		datab_o=>open 
     );
 	ram1: Oscilliscope_ram port map(
@@ -174,11 +174,35 @@ begin
     );
 
 	------------------------------------------------------------------
+	-- Button Metastability Logic
+	------------------------------------------------------------------
+	process(clkfx)
+	begin
+		if rising_edge(clkfx)
+			ud_btn_sh(4)<=btn(1); -- upper 4 bits for up shift button
+			ud_btn_sh(5)<=ud_btn_sh(4);
+			ud_btn_sh(6)<=ud_btn_sh(5);
+			ud_btn_sh(7)<=ud_btn_sh(6); -- use bits 7,6 for edge detection
+
+			ud_btn_sh(3)<=btn(0); -- lower 4 bits for down shift button
+			ud_btn_sh(2)<=ud_btn_sh(3);
+			ud_btn_sh(1)<=ud_btn_sh(2);
+			ud_btn_sh(0)<=ud_btn_sh(1); -- use bits 0,1 for edge detection
+		end if;
+		-- TODO: add debouncing
+
+		-- TODO: add edge detection to shift up
+
+		-- TODO: set magnitude of shift
+
+		-- TODO: pick input (for button press) and output (for button pull-up thought 3.3-10kOhm) ports
+	end process;
+	------------------------------------------------------------------
 	-- RAM from Buffer Chain logic
 	------------------------------------------------------------------
 	addr_a <= std_logic_vector(hcount);
 	--* Switch ram block to read from after each frame * --
-	process(clkfx) -- frame,adc_loc
+	process(clkfx) -- clkfx from cmt2 25.2 MHz for VGA
 	begin
 		-- Select ram most-recently used by adc as next vga_loc
 		if vga_loc=adc_loc-1 then
@@ -212,6 +236,7 @@ begin
 			end if;
 		end if;
 	end process;
+
 	------------------------------------------------------------------
 	-- ADC to Buffer Chain logic
 	------------------------------------------------------------------
@@ -226,7 +251,7 @@ begin
 		end if;
 
 		-- * Write to incremented address of ram block at rising edge of rdy * --
-		if rising_edge(fclk) then -- rdy is synced with fclk
+		if rising_edge(fclk) then -- fclk from cmt 52 MHz for ADC; rdy is synced with fclk
 			if rdy='1' then
 				if (addrb=std_logic_vector(to_unsigned(samples-1,10))) then
 					addrb<=b"00_0000_0000";

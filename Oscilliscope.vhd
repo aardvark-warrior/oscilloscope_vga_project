@@ -109,9 +109,12 @@ architecture arch of Oscilliscope is
 	signal screen_blu: 	std_logic_vector(1 downto 0):=(others=>'0');
 	--Scaling and Shifting--
 	signal ratio: 		unsigned(9 downto 0);						-- adc_range(4096)/grid_height; 
-	signal str_signal:	unsigned(23 downto 0);  -- signal after stretch/gain (potentially 12 bits)
+	signal scaled_sig:	unsigned(23 downto 0);  -- signal after stretch/gain (potentially 12 bits)
 	-- signal shf_signal:  signed(35 downto 0);  -- final signal after shifting; COMPARE to vcount
+	signal gn_state:	signed(7 downto 0):=(others=>'0');
+	signal gn_state_n:	signed(7 downto 0):=(others=>'0');
 	signal gain:		unsigned(11 downto 0):=to_unsigned(1,12);	-- TODO: find min number of bits needed
+	signal gain_next:	unsigned(11 downto 0):=to_unsigned(1,12);
 	signal v_shift:		signed(11 downto 0):=to_signed(0,12);
 	signal v_shift_next:signed(11 downto 0):=to_signed(0,12);
 	-- signal str_hcount:	unsigned(11 downto 0);
@@ -128,7 +131,7 @@ architecture arch of Oscilliscope is
 	--Button shift registers-- upper 4 bits shift from 4->7, lower 4 shift 3->0
 	signal ud_btn_sh: 	std_logic_vector(7 downto 0):=(others=>'0'); -- upper 4 bits (shift up), 		lower 4 bits (shift down)
 	-- signal lr_btn_sh:   std_logic_vector(7 downto 0):=(others=>'0'); -- upper 4 bits (shift left), 		lower 4 bits (shift right)
-	-- signal vs_btn_sh:	std_logic_vector(7 downto 0):=(others=>'0'); -- upper 4 bits (voltage scale up),lower 4 bits (scale down)
+	signal vs_btn_sh:	std_logic_vector(7 downto 0):=(others=>'0'); -- upper 4 bits (voltage scale up),lower 4 bits (scale down)
 	-- signal ts_btn_sh:   std_logic_vector(7 downto 0):=(others=>'0'); -- upper 4 bits (time stretch), 	lower 4 bits (time compress)
 	signal ram_led:   	std_logic_vector(3 downto 0);
 
@@ -194,26 +197,60 @@ begin
 	process(clkfx)
 	begin
 		if rising_edge(clkfx) then
-			ud_btn_sh(4)<=btn(1); -- upper 4 bits for up shift button
+			--Up/Down Buttons--
+			ud_btn_sh(4)<=pio23; -- upper 4 bits for up shift button
 			ud_btn_sh(5)<=ud_btn_sh(4);
 			ud_btn_sh(6)<=ud_btn_sh(5);
 			ud_btn_sh(7)<=ud_btn_sh(6); -- use bits 7,6 for edge detection
-
-			ud_btn_sh(3)<=btn(0); -- lower 4 bits for down shift button
+			ud_btn_sh(3)<=pio22; -- lower 4 bits for down shift button
 			ud_btn_sh(2)<=ud_btn_sh(3);
 			ud_btn_sh(1)<=ud_btn_sh(2);
 			ud_btn_sh(0)<=ud_btn_sh(1); -- use bits 0,1 for edge detection
-
 			if ud_btn_sh(7)='0' and ud_btn_sh(6)='1' then
-				v_shift_next<=v_shift+to_signed(-1,12);
+				v_shift_next<=v_shift+to_signed(-5,12);
 			end if;
 			
 			if ud_btn_sh(0)='0' and ud_btn_sh(1)='1' then
-				v_shift_next<=v_shift+to_signed(1,12);
+				v_shift_next<=v_shift+to_signed(5,12);
 			end if;
 
 			if frame='1' then
 				v_shift<=v_shift_next;
+			end if;
+
+			--Vertical-scale Buttons--
+			vs_btn_sh(4)<=btn(1); -- upper 4 bits for scale-up
+			vs_btn_sh(5)<=vs_btn_sh(4);
+			vs_btn_sh(6)<=vs_btn_sh(5);
+			vs_btn_sh(7)<=vs_btn_sh(6); -- use bits 7,6 for edge detection
+			vs_btn_sh(3)<=btn(0); -- lower 4 bits for scale-down
+			vs_btn_sh(2)<=vs_btn_sh(3);
+			vs_btn_sh(1)<=vs_btn_sh(2);
+			vs_btn_sh(0)<=vs_btn_sh(1); -- use bits 0,1 for edge detection
+			if vs_btn_sh(7)='0' and vs_btn_sh(6)='1' then
+				gn_state_n <= gn_state + 1;
+				if gn_state<to_signed(0,8) then
+					gain_next <= gain - 1;
+				elsif gn_state>to_signed(0,8) then
+					gain_next <= gain + 1;
+				else
+					gain_next <= to_unsigned(1,12);
+				end if;
+			end if;
+			if vs_btn_sh(0)='0' and vs_btn_sh(1)='1' then
+				gn_state_n <= gn_state - 1;
+				if gn_state_n>to_signed(0,8) then
+					gain_next <= gain - 1;
+				elsif gn_state_n<to_signed(0,8) then
+					gain_next <= gain + 1;
+				else
+					gain_next <= to_unsigned(1,12);
+				end if;
+			end if;
+
+			if frame='1' then
+				gn_state<=gn_state_n;
+				gain<=gain_next;
 			end if;
 		end if;
 		-- TODO: add debouncing
@@ -486,7 +523,7 @@ begin
 	-- VGA Output: Grid, Trace
 	------------------------------------------------------------------
 	ratio <= 4096/grid_height;
-	str_signal <= unsigned(dataa(11 downto 0))/ratio * gain;
+	-- str_signal <= unsigned(dataa(11 downto 0))/ratio * gain;
 	-- shf_signal <= signed(str_signal) + v_shift;
 	-- str_hcount <= hcount * h_stretch;
 	-- shf_hcount <= signed(str_hcount) + h_shift;
@@ -514,9 +551,14 @@ begin
                 grd_blu<=b"00";
             end if;
 			
+			if gn_state>=to_signed(0,8) then
+				scaled_sig <= grid_top+grid_height- gain*unsigned(dataa(11 downto 0))/ratio;
+			else
+				scaled_sig(11 downto 0) <= grid_top+grid_height- unsigned(dataa(11 downto 0))/ratio/gain;
+			end if;
 			-- Draw line
             if vcount>=grid_top and vcount<=grid_bottom and hcount>=grid_left and hcount<=grid_right and
-				vcount=unsigned(signed(grid_top+grid_height-gain*unsigned(dataa(11 downto 0))/ratio)+v_shift) then	--unsigned(dataa(11 downto 0))/(4096/grid-height)
+				vcount=unsigned(signed(scaled_sig)+v_shift) then	--unsigned(dataa(11 downto 0))/(4096/grid-height)
 				line_red<=b"00";            
 				line_grn<=b"11";
 				line_blu<=b"00";

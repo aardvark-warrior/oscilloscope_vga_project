@@ -68,7 +68,7 @@ architecture arch of Oscilliscope is
 			clk_o: out std_logic
 		);
 	end component;
-	
+	--XADC--
 	constant samples: natural:=480;
 	signal fclk:    std_logic;
 	signal rdy:  	std_logic;
@@ -88,8 +88,7 @@ architecture arch of Oscilliscope is
 	signal dataa1: 	std_logic_vector(35 downto 0); 	
 	signal dataa2: 	std_logic_vector(35 downto 0); 	
 	signal dataa3: 	std_logic_vector(35 downto 0); 	
-
-	--VGA --
+	--VGA--
 	signal clkfb:    std_logic;
 	signal clkfx:    std_logic;
 	signal hcount:   unsigned(9 downto 0);
@@ -112,8 +111,11 @@ architecture arch of Oscilliscope is
 	signal grid_right: 	unsigned(9 downto 0):=to_unsigned(480,10); -- 10 + (330-1)
 	signal grid_width: 	unsigned(9 downto 0):=to_unsigned(480,10);
 	signal grid_height: unsigned(9 downto 0):=to_unsigned(256,10);
-
-	signal btn_shift: 	std_logic_vector(7 downto 0):=(others=>'0');
+	-- Button and LEDs --
+	signal ud_btn_sh: 	std_logic_vector(7 downto 0):=(others=>'0'); -- up (top 4 bits), down (lower 4 bits)
+	signal lr_btn_sh:   std_logic_vector(7 downto 0):=(others=>'0'); -- left (top 4 bits), right (lower 4 bits)
+	signal vs_btn_sh:	std_logic_vector(7 downto 0):=(others=>'0'); -- voltage scale up (top 4 bits), v scale down (lower 4 bits)
+	signal ts_btn_sh:   std_logic_vector(7 downto 0):=(others=>'0'); -- time stretch (top 4 bits), time compress (lower 4 bits)
 	signal ram_led:   	std_logic_vector(3 downto 0);
 
 begin
@@ -173,10 +175,6 @@ begin
 
 	------------------------------------------------------------------
 	-- RAM from Buffer Chain logic
-	
-	-- TODO: potential timing issue between frame and rdy signals, causing:
-	--		 1) vga to not select most recent data, or 
-	-- 		 2) adc to jump to ram used by vga (if vga loc updates right as adc switches)
 	------------------------------------------------------------------
 	addr_a <= std_logic_vector(hcount);
 	--* Switch ram block to read from after each frame * --

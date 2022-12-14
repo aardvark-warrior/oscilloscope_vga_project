@@ -123,14 +123,12 @@ architecture arch of Oscilliscope is
 	signal v_shift:		signed(11 downto 0):=to_signed(0,12);
 	signal v_shift_next:signed(11 downto 0):=to_signed(0,12);
 	--Horizontal scaling/shifting--
-	-- signal t_scale:		unsigned(9 downto 0):=to_unsigned(1,10);
+	signal ram_idx:		std_logic_vector(9 downto 0);
 	signal h_shift:		signed(9 downto 0):=to_signed(0,10);
 	signal h_shift_next:signed(9 downto 0):=to_signed(0,10);
-	signal ram_idx:		std_logic_vector(9 downto 0);
-	-- signal str_hcount:	unsigned(11 downto 0);
-	-- signal shf_hcount:	signed(11 downto 0);  -- final hcount after shifting; USE to index RAM
+	signal t_scale:		unsigned(9 downto 0):=to_unsigned(1,10);
+	signal t_scale_n:   unsigned(9 downto 0):=to_unsigned(1,10);
 	-- signal h_stretch:   unsigned(11 downto 0):=to_unsigned(1,12);
-	-- signal h_shift:		signed(11 downto 0):=to_signed(0,12);
 	--Dimensions of scope grid--
 	signal grid_top: 	unsigned(9 downto 0):=to_unsigned(0,10);
 	signal grid_left: 	unsigned(9 downto 0):=to_unsigned(0,10);
@@ -285,9 +283,9 @@ begin
 			vs_btn_sh(0)<=vs_btn_sh(1); -- use bits 0,1 for edge detection
 			if vs_btn_sh(7)='0' and vs_btn_sh(6)='1' then
 				gn_state_n <= gn_state + 1;
-				if gn_state_n<to_signed(0,8) then
+				if gn_state<to_signed(0,8) then
 					gain_next <= gain - 1;
-				elsif gn_state_n>to_signed(0,8) then
+				elsif gn_state>to_signed(0,8) then
 					gain_next <= gain + 1;
 				else
 					gain_next <= to_unsigned(1,12);
@@ -295,9 +293,9 @@ begin
 			end if;
 			if vs_btn_sh(0)='0' and vs_btn_sh(1)='1' then
 				gn_state_n <= gn_state - 1;
-				if gn_state_n>to_signed(0,8) then
+				if gn_state>to_signed(0,8) then
 					gain_next <= gain - 1;
-				elsif gn_state_n<to_signed(0,8) then
+				elsif gn_state<to_signed(0,8) then
 					gain_next <= gain + 1;
 				else
 					gain_next <= to_unsigned(1,12);

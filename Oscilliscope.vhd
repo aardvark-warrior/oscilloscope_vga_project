@@ -77,7 +77,7 @@ architecture arch of Oscilliscope is
 	signal counter: unsigned(10 downto 0):= b"00000000001";
 	signal addra: 	std_logic_vector(9 downto 0); 	-- driven by gui
 	signal addr_a:	std_logic_vector(9 downto 0); 	-- driven by VGA hcount
-	signal dataa: 	std_logic_vector(35 downto 0); 	-- from RAM ...
+	signal dataa: 	std_logic_vector(35 downto 0); 	-- original scope reading from RAM ...
 	signal addrb: 	std_logic_vector(9 downto 0);
 	signal datab: 	std_logic_vector(35 downto 0); 	-- from ADC ...
 	signal adc_loc: unsigned(1 downto 0):=b"00";	-- track adc location in buffer chain
@@ -95,15 +95,25 @@ architecture arch of Oscilliscope is
 	signal vcount:   unsigned(9 downto 0);
 	signal blank:    std_logic;
 	signal frame:    std_logic;
-	signal grd_red: std_logic_vector(1 downto 0):=(others=>'0');  -- grid
-	signal grd_grn: std_logic_vector(1 downto 0):=(others=>'0');
-	signal grd_blu: std_logic_vector(1 downto 0):=(others=>'0');
+	signal grd_red:  std_logic_vector(1 downto 0):=(others=>'0');  -- grid
+	signal grd_grn:  std_logic_vector(1 downto 0):=(others=>'0');
+	signal grd_blu:  std_logic_vector(1 downto 0):=(others=>'0');
 	signal line_red: std_logic_vector(1 downto 0):=(others=>'0');  -- reading
 	signal line_grn: std_logic_vector(1 downto 0):=(others=>'0');
 	signal line_blu: std_logic_vector(1 downto 0):=(others=>'0');
-	signal screen_red: std_logic_vector(1 downto 0):=(others=>'0');  -- screen -> reading over grid
-	signal screen_grn: std_logic_vector(1 downto 0):=(others=>'0');
-	signal screen_blu: std_logic_vector(1 downto 0):=(others=>'0');
+	signal screen_red: 	std_logic_vector(1 downto 0):=(others=>'0');  -- screen -> reading over grid
+	signal screen_grn: 	std_logic_vector(1 downto 0):=(others=>'0');
+	signal screen_blu: 	std_logic_vector(1 downto 0):=(others=>'0');
+	--Scaling and Shifting--
+	signal ratio: 		unsigned(11 downto 0);						-- adc_range(4096)/grid_height; 
+	signal str_signal:	unsigned(35 downto 0);  -- signal after stretch/gain (potentially 12 bits)
+	signal shf_signal:  unsigned(35 downto 0);  -- final signal after shifting; COMPARE to vcount
+	signal gain:		unsigned(11 downto 0):=to_unsigned(1,12);	-- TODO: find min number of bits needed
+	signal v_shift:		signed(11 downto 0):=to_signed(0,12);
+	signal str_hcount:	unsigned(11 downto 0);
+	signal shi_hcount:	unsigned(11 downto 0);  -- final hcount after shifting; USE to index RAM
+	signal h_stretch:   unsigned(11 downto 0):=to_unsigned(1,12);
+	signal h_shift:		signed(11 downto 0):=to_signed(0,12);
 	--Dimensions of scope grid--
 	signal grid_top: 	unsigned(9 downto 0):=to_unsigned(0,10);
 	signal grid_left: 	unsigned(9 downto 0):=to_unsigned(0,10);
@@ -196,6 +206,14 @@ begin
 		-- TODO: set magnitude of shift
 
 		-- TODO: pick input (for button press) and output (for button pull-up thought 3.3-10kOhm) ports
+
+		-- TODO: improve h_stretch by stretching about centre of screen (not y-axis)
+
+		-- Basic idea:
+			-- Vertical stretch   -> multiply/divide dataa (before comparing to vcount)
+			-- Vertical shift 	  -> add/subtract dataa
+			-- Horizontal stretch -> mutiply/divide hcount (index into RAM)
+			-- Horizontal shift   -> add/subtract hcount
 	end process;
 	------------------------------------------------------------------
 	-- RAM from Buffer Chain logic
@@ -454,7 +472,12 @@ begin
     ------------------------------------------------------------------
 	-- VGA Output: Grid, Trace
 	------------------------------------------------------------------
-    process(clkfx,grd_red,grd_blu,grd_grn,line_red,line_grn,line_blu)
+	ratio <= 4096/grid_height;
+	str_signal <= unsigned(dataa(11 downto 0))/ratio * gain;
+	shi_signal <= str_signal + v_shift;
+	str_hcount <= hcount * h_stretch;
+	shi_hcount <= str_hcount + h_shift;
+	process(clkfx,grd_red,grd_blu,grd_grn,line_red,line_grn,line_blu)
     begin
         if rising_edge(clkfx) then
 			-- Draw grid
@@ -478,9 +501,9 @@ begin
                 grd_blu<=b"00";
             end if;
 			
-			-- Draw line/trace using one RAM block (ram0)
-            if vcount>=grid_top and vcount<=grid_bottom and hcount>=grid_left and hcount<=grid_right and 
-				vcount=(grid_top+grid_height-unsigned(dataa(11 downto 0))/(4096/grid_height)) then
+			-- Draw line
+            if vcount>=grid_top and vcount<=grid_bottom and hcount>=grid_left and hcount<=grid_right and
+				vcount=(grid_top+grid_height-unsigned(dataa(11 downto 0))/(4096/grid-height)) then
 				line_red<=b"00";            
 				line_grn<=b"11";
 				line_blu<=b"00";

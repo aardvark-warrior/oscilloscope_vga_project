@@ -78,7 +78,7 @@ architecture arch of Oscilliscope is
 		);
 	end component;
 	--XADC--
-	constant samples: natural:=1024;
+	constant samples: natural:=960;
 	signal fclk:    std_logic;
 	signal rdy:  	std_logic;
 	signal out31: 	std_logic;
@@ -142,7 +142,7 @@ architecture arch of Oscilliscope is
 	signal ud_btn_sh: 	std_logic_vector(7 downto 0):=(others=>'0'); -- upper 4 bits (shift up), 		lower 4 bits (shift down)
 	signal lr_btn_sh:   std_logic_vector(7 downto 0):=(others=>'0'); -- upper 4 bits (shift left), 		lower 4 bits (shift right)
 	signal vs_btn_sh:	std_logic_vector(7 downto 0):=(others=>'0'); -- upper 4 bits (voltage scale up),lower 4 bits (scale down)
-	-- signal ts_btn_sh:   std_logic_vector(7 downto 0):=(others=>'0'); -- upper 4 bits (time stretch), 	lower 4 bits (time compress)
+	signal ts_btn_sh:   std_logic_vector(7 downto 0):=(others=>'0'); -- upper 4 bits (time stretch), 	lower 4 bits (time compress)
 	signal ram_led:   	std_logic_vector(3 downto 0);
 
 begin
@@ -202,7 +202,9 @@ begin
 
 	------------------------------------------------------------------
 	-- Button Metastability Logic
-	-- TODO: add debouncing
+		-- TODO: add triggering to keep reading still? screen must
+		--		 fit a full period for the image to be still
+		-- TODO: add debouncing
 		-- TODO: improve h_stretch by stretching about centre of screen (not y-axis)
 		-- Basic idea:
 			-- Vertical stretch   -> multiply/divide dataa (before comparing to vcount)
@@ -216,6 +218,25 @@ begin
 	process(clkfx)
 	begin
 		if rising_edge(clkfx) then
+			-- ts_btn_sh(4)<=pio17; -- upper 4 bits for LEFT shift button
+			-- ts_btn_sh(5)<=ts_btn_sh(4);
+			-- ts_btn_sh(6)<=ts_btn_sh(5);
+			-- ts_btn_sh(7)<=ts_btn_sh(6); -- use bits 7,6 for edge detection
+			-- ts_btn_sh(3)<=pio16; -- lower 4 bits for RIGHT shift button
+			-- ts_btn_sh(2)<=ts_btn_sh(3);
+			-- ts_btn_sh(1)<=ts_btn_sh(2);
+			-- ts_btn_sh(0)<=ts_btn_sh(1); -- use bits 0,1 for edge detection
+			-- if ts_btn_sh(7)='0' and ts_btn_sh(6)='1' then
+			-- 	-- TODO:
+			-- end if;
+			-- if ts_btn_sh(0)='0' and ts_btn_sh(1)='1' then
+			-- 	-- TODO:
+			-- end if;
+			-- if frame='1' then
+			-- 	-- TODO:
+			-- end if;
+			
+			
 			lr_btn_sh(4)<=pio20; -- upper 4 bits for LEFT shift button
 			lr_btn_sh(5)<=lr_btn_sh(4);
 			lr_btn_sh(6)<=lr_btn_sh(5);
@@ -264,9 +285,9 @@ begin
 			vs_btn_sh(0)<=vs_btn_sh(1); -- use bits 0,1 for edge detection
 			if vs_btn_sh(7)='0' and vs_btn_sh(6)='1' then
 				gn_state_n <= gn_state + 1;
-				if gn_state<to_signed(0,8) then
+				if gn_state_n<to_signed(0,8) then
 					gain_next <= gain - 1;
-				elsif gn_state>to_signed(0,8) then
+				elsif gn_state_n>to_signed(0,8) then
 					gain_next <= gain + 1;
 				else
 					gain_next <= to_unsigned(1,12);
@@ -320,12 +341,16 @@ begin
 			else
 				if vga_loc=to_unsigned(0,2) then
 					dataa <= dataa0;
+					ram_led <= b"0001";
 				elsif vga_loc<=to_unsigned(1,2) then
 					dataa <= dataa1;
+					ram_led <= b"0010";
 				elsif vga_loc<=to_unsigned(2,2) then
 					dataa <= dataa2;
+					ram_led <= b"0100";
 				else
 					dataa <= dataa3;
+					ram_led <= b"1000";
 				end if;
 			end if;
 		end if;
@@ -363,16 +388,16 @@ begin
 					addrb<=std_logic_vector(unsigned(addrb) + to_unsigned(1,10));
 					if adc_loc=to_unsigned(0,2) then
 						web <= (0=>rdy,others=>'0');
-						ram_led <= b"0001";
+						-- ram_led <= b"0001";
 					elsif adc_loc=to_unsigned(1,2) then
 						web <= (1=>rdy,others=>'0');
-						ram_led <= b"0010";
+						-- ram_led <= b"0010";
 					elsif adc_loc=to_unsigned(2,2) then
 						web <= (2=>rdy,others=>'0');
-						ram_led <= b"0100";
+						-- ram_led <= b"0100";
 					else
 						web <= (3=>rdy,others=>'0');
-						ram_led <= b"1000";
+						-- ram_led <= b"1000";
 					end if;
 				end if;
 			else

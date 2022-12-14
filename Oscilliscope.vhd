@@ -200,6 +200,9 @@ begin
 
 	------------------------------------------------------------------
 	-- Button Metastability Logic
+		-- TODO: fix vertical gain flat-line
+		-- TODO: horizontal shift wraps around, but discontinuous bc sample=960 < max(ram addr)=1024
+		--		 data wraparound happens sooner than address wraparound
 		-- TODO: add triggering to keep reading still? screen must
 		--		 fit a full period for the image to be still
 		-- TODO: add debouncing

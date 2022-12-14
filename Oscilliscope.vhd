@@ -15,14 +15,17 @@ entity Oscilliscope is
 		pio31:   out std_logic;  -- square wave signal; pin 30 detects signal (first white circle)
 		rx:      in  std_logic;
 		tx:      out std_logic;
-		
 		--VGA
         tvx:   out   std_logic;
 		red:   out   std_logic_vector(1 downto 0);
 		green: out   std_logic_vector(1 downto 0);
 		blue:  out   std_logic_vector(1 downto 0);
 		hsync: out   std_logic;
-		vsync: out   std_logic
+		vsync: out   std_logic;
+		--Control buttons
+		pio23:	in	std_logic;
+		pio22:	in	std_logic;
+		pio21:	out std_logic
 	);
 end Oscilliscope;
 
@@ -105,15 +108,16 @@ architecture arch of Oscilliscope is
 	signal screen_grn: 	std_logic_vector(1 downto 0):=(others=>'0');
 	signal screen_blu: 	std_logic_vector(1 downto 0):=(others=>'0');
 	--Scaling and Shifting--
-	signal ratio: 		unsigned(11 downto 0);						-- adc_range(4096)/grid_height; 
-	signal str_signal:	unsigned(35 downto 0);  -- signal after stretch/gain (potentially 12 bits)
-	signal shf_signal:  unsigned(35 downto 0);  -- final signal after shifting; COMPARE to vcount
+	signal ratio: 		unsigned(9 downto 0);						-- adc_range(4096)/grid_height; 
+	signal str_signal:	unsigned(23 downto 0);  -- signal after stretch/gain (potentially 12 bits)
+	-- signal shf_signal:  signed(35 downto 0);  -- final signal after shifting; COMPARE to vcount
 	signal gain:		unsigned(11 downto 0):=to_unsigned(1,12);	-- TODO: find min number of bits needed
 	signal v_shift:		signed(11 downto 0):=to_signed(0,12);
-	signal str_hcount:	unsigned(11 downto 0);
-	signal shi_hcount:	unsigned(11 downto 0);  -- final hcount after shifting; USE to index RAM
-	signal h_stretch:   unsigned(11 downto 0):=to_unsigned(1,12);
-	signal h_shift:		signed(11 downto 0):=to_signed(0,12);
+	signal v_shift_next:signed(11 downto 0):=to_signed(0,12);
+	-- signal str_hcount:	unsigned(11 downto 0);
+	-- signal shf_hcount:	signed(11 downto 0);  -- final hcount after shifting; USE to index RAM
+	-- signal h_stretch:   unsigned(11 downto 0):=to_unsigned(1,12);
+	-- signal h_shift:		signed(11 downto 0):=to_signed(0,12);
 	--Dimensions of scope grid--
 	signal grid_top: 	unsigned(9 downto 0):=to_unsigned(0,10);
 	signal grid_left: 	unsigned(9 downto 0):=to_unsigned(0,10);
@@ -123,9 +127,9 @@ architecture arch of Oscilliscope is
 	signal grid_height: unsigned(9 downto 0):=to_unsigned(256,10);
 	--Button shift registers-- upper 4 bits shift from 4->7, lower 4 shift 3->0
 	signal ud_btn_sh: 	std_logic_vector(7 downto 0):=(others=>'0'); -- upper 4 bits (shift up), 		lower 4 bits (shift down)
-	signal lr_btn_sh:   std_logic_vector(7 downto 0):=(others=>'0'); -- upper 4 bits (shift left), 		lower 4 bits (shift right)
-	signal vs_btn_sh:	std_logic_vector(7 downto 0):=(others=>'0'); -- upper 4 bits (voltage scale up),lower 4 bits (scale down)
-	signal ts_btn_sh:   std_logic_vector(7 downto 0):=(others=>'0'); -- upper 4 bits (time stretch), 	lower 4 bits (time compress)
+	-- signal lr_btn_sh:   std_logic_vector(7 downto 0):=(others=>'0'); -- upper 4 bits (shift left), 		lower 4 bits (shift right)
+	-- signal vs_btn_sh:	std_logic_vector(7 downto 0):=(others=>'0'); -- upper 4 bits (voltage scale up),lower 4 bits (scale down)
+	-- signal ts_btn_sh:   std_logic_vector(7 downto 0):=(others=>'0'); -- upper 4 bits (time stretch), 	lower 4 bits (time compress)
 	signal ram_led:   	std_logic_vector(3 downto 0);
 
 begin
@@ -186,9 +190,10 @@ begin
 	------------------------------------------------------------------
 	-- Button Metastability Logic
 	------------------------------------------------------------------
+	pio21 <= '1';
 	process(clkfx)
 	begin
-		if rising_edge(clkfx)
+		if rising_edge(clkfx) then
 			ud_btn_sh(4)<=btn(1); -- upper 4 bits for up shift button
 			ud_btn_sh(5)<=ud_btn_sh(4);
 			ud_btn_sh(6)<=ud_btn_sh(5);
@@ -198,14 +203,22 @@ begin
 			ud_btn_sh(2)<=ud_btn_sh(3);
 			ud_btn_sh(1)<=ud_btn_sh(2);
 			ud_btn_sh(0)<=ud_btn_sh(1); -- use bits 0,1 for edge detection
+
+			if ud_btn_sh(7)='0' and ud_btn_sh(6)='1' then
+				v_shift_next<=v_shift+to_signed(-1,12);
+			end if;
+			
+			if ud_btn_sh(0)='0' and ud_btn_sh(1)='1' then
+				v_shift_next<=v_shift+to_signed(1,12);
+			end if;
+
+			if frame='1' then
+				v_shift<=v_shift_next;
+			end if;
 		end if;
 		-- TODO: add debouncing
 
 		-- TODO: add edge detection to shift up
-
-		-- TODO: set magnitude of shift
-
-		-- TODO: pick input (for button press) and output (for button pull-up thought 3.3-10kOhm) ports
 
 		-- TODO: improve h_stretch by stretching about centre of screen (not y-axis)
 
@@ -474,9 +487,9 @@ begin
 	------------------------------------------------------------------
 	ratio <= 4096/grid_height;
 	str_signal <= unsigned(dataa(11 downto 0))/ratio * gain;
-	shi_signal <= str_signal + v_shift;
-	str_hcount <= hcount * h_stretch;
-	shi_hcount <= str_hcount + h_shift;
+	-- shf_signal <= signed(str_signal) + v_shift;
+	-- str_hcount <= hcount * h_stretch;
+	-- shf_hcount <= signed(str_hcount) + h_shift;
 	process(clkfx,grd_red,grd_blu,grd_grn,line_red,line_grn,line_blu)
     begin
         if rising_edge(clkfx) then
@@ -503,7 +516,7 @@ begin
 			
 			-- Draw line
             if vcount>=grid_top and vcount<=grid_bottom and hcount>=grid_left and hcount<=grid_right and
-				vcount=(grid_top+grid_height-unsigned(dataa(11 downto 0))/(4096/grid-height)) then
+				vcount=unsigned(signed(grid_top+grid_height-gain*unsigned(dataa(11 downto 0))/ratio)+v_shift) then	--unsigned(dataa(11 downto 0))/(4096/grid-height)
 				line_red<=b"00";            
 				line_grn<=b"11";
 				line_blu<=b"00";

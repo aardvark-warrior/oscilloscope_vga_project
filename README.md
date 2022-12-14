@@ -24,6 +24,10 @@
 
 - `Oscilloscope` in Oscilloscope.xdc
 
+### **12/14/2022 10:57 AM**
+Lines 108-116: signals for scaling/shifting
+Lines 189+   : TODOs and description in section titled "Button Metastability Logic"
+Lines 475-479: skeleton implementation of [v/h]shifting and scaling
 
 ### **12/13/2022 1:00 AM**
 Worked on Buffer Chain 2.0 just now. Made two signals to track location of ADC and VGA in the buffer chain. Implemented two processes with two-segment style, `process(frame,adc_loc)` and `process(rdy,vga_loc)`, to update `vga_loc`, `vga_loc_next`, `adc_loc`, `adc_loc_next`, and to switch ram blocks that VGA and ADC use.

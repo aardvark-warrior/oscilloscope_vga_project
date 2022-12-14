@@ -61,7 +61,7 @@ architecture arch of Oscilliscope is
 		port(
 			clka_i:  in  std_logic;
 			wea_i:   in  std_logic;
-			addra_i: in  std_logic_vector(9 downto 0);
+			addra_i: in  std_logic_vector(9 downto 0);  -- 2^10 -1 addresses (1024 -1)
 			dataa_i: in  std_logic_vector(35 downto 0); -- writes XADC data output as lowest 12 bits of 36
 			dataa_o: out std_logic_vector(35 downto 0); -- VGA reads from here and compare to vcount
 			clkb_i:  in  std_logic;
@@ -78,7 +78,7 @@ architecture arch of Oscilliscope is
 		);
 	end component;
 	--XADC--
-	constant samples: natural:=480;
+	constant samples: natural:=1024;
 	signal fclk:    std_logic;
 	signal rdy:  	std_logic;
 	signal out31: 	std_logic;
@@ -135,8 +135,8 @@ architecture arch of Oscilliscope is
 	signal grid_top: 	unsigned(9 downto 0):=to_unsigned(0,10);
 	signal grid_left: 	unsigned(9 downto 0):=to_unsigned(0,10);
 	signal grid_bottom: unsigned(9 downto 0):=to_unsigned(256,10); -- 10 + (256-1)
-	signal grid_right: 	unsigned(9 downto 0):=to_unsigned(480,10); -- 10 + (330-1)
-	signal grid_width: 	unsigned(9 downto 0):=to_unsigned(480,10);
+	signal grid_right: 	unsigned(9 downto 0):=to_unsigned(512,10); -- 10 + (330-1)
+	signal grid_width: 	unsigned(9 downto 0):=to_unsigned(512,10);
 	signal grid_height: unsigned(9 downto 0):=to_unsigned(256,10);
 	--Button shift registers-- upper 4 bits shift from 4->7, lower 4 shift 3->0
 	signal ud_btn_sh: 	std_logic_vector(7 downto 0):=(others=>'0'); -- upper 4 bits (shift up), 		lower 4 bits (shift down)

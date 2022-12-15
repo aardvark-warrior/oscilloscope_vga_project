@@ -115,20 +115,21 @@ architecture arch of Oscilliscope is
 	signal screen_blu: 	std_logic_vector(1 downto 0):=(others=>'0');
 	--Vertical scaling/shifting--
 	signal ratio: 		unsigned(9 downto 0);						-- adc_range(4096)/grid_height; 
-	signal scaled_sig:	unsigned(23 downto 0);  -- signal after stretch/gain (potentially 12 bits)
-	signal gn_state:	signed(7 downto 0):=(others=>'0');
+	signal scaled_sig:	unsigned(23 downto 0);  -- signal after stretch/gain 
+	signal gn_state:	signed(7 downto 0):=(others=>'0');	-- TODO: find min number of bits needed
 	signal gn_state_n:	signed(7 downto 0):=(others=>'0');
-	signal gain:		unsigned(11 downto 0):=to_unsigned(1,12);	-- TODO: find min number of bits needed
+	signal gain:		unsigned(11 downto 0):=to_unsigned(1,12);	
 	signal gain_next:	unsigned(11 downto 0):=to_unsigned(1,12);
 	signal v_shift:		signed(11 downto 0):=to_signed(0,12);
 	signal v_shift_next:signed(11 downto 0):=to_signed(0,12);
 	--Horizontal scaling/shifting--
 	signal ram_idx:		std_logic_vector(9 downto 0);
-	signal h_shift:		signed(9 downto 0):=to_signed(0,10);
-	signal h_shift_next:signed(9 downto 0):=to_signed(0,10);
+	signal ts_state:    signed(7 downto 0):=(others=>'0');
+	signal ts_state_n:  signed(7 downto 0):=(others=>'0');
 	signal t_scale:		unsigned(9 downto 0):=to_unsigned(1,10);
 	signal t_scale_n:   unsigned(9 downto 0):=to_unsigned(1,10);
-	-- signal h_stretch:   unsigned(11 downto 0):=to_unsigned(1,12);
+	signal h_shift:		signed(9 downto 0):=to_signed(0,10);
+	signal h_shift_next:signed(9 downto 0):=to_signed(0,10);
 	--Dimensions of scope grid--
 	signal grid_top: 	unsigned(9 downto 0):=to_unsigned(0,10);
 	signal grid_left: 	unsigned(9 downto 0):=to_unsigned(0,10);
@@ -219,25 +220,45 @@ begin
 	process(clkfx)
 	begin
 		if rising_edge(clkfx) then
-			-- ts_btn_sh(4)<=pio17; -- upper 4 bits for LEFT shift button
-			-- ts_btn_sh(5)<=ts_btn_sh(4);
-			-- ts_btn_sh(6)<=ts_btn_sh(5);
-			-- ts_btn_sh(7)<=ts_btn_sh(6); -- use bits 7,6 for edge detection
-			-- ts_btn_sh(3)<=pio16; -- lower 4 bits for RIGHT shift button
-			-- ts_btn_sh(2)<=ts_btn_sh(3);
-			-- ts_btn_sh(1)<=ts_btn_sh(2);
-			-- ts_btn_sh(0)<=ts_btn_sh(1); -- use bits 0,1 for edge detection
-			-- if ts_btn_sh(7)='0' and ts_btn_sh(6)='1' then
-			-- 	-- TODO:
-			-- end if;
-			-- if ts_btn_sh(0)='0' and ts_btn_sh(1)='1' then
-			-- 	-- TODO:
-			-- end if;
-			-- if frame='1' then
-			-- 	-- TODO:
-			-- end if;
-			
-			
+			--Time scale buttons--
+			ts_btn_sh(4)<=pio17; -- upper 4 bits for stretch time button
+			ts_btn_sh(5)<=ts_btn_sh(4);
+			ts_btn_sh(6)<=ts_btn_sh(5);
+			ts_btn_sh(7)<=ts_btn_sh(6); -- use bits 7,6 for edge detection
+			ts_btn_sh(3)<=pio16; -- lower 4 bits for compress time button
+			ts_btn_sh(2)<=ts_btn_sh(3);
+			ts_btn_sh(1)<=ts_btn_sh(2);
+			ts_btn_sh(0)<=ts_btn_sh(1); -- use bits 0,1 for edge detection
+			if ts_btn_sh(7)='0' and ts_btn_sh(6)='1' then
+				ts_state_n <= ts_state+1;
+				if ts_state<signed(0,8) then
+					if ts_state_n=signed(0,8) then
+						t_scale_n <= to_unsigned(1,12);
+					else
+						t_scale_n <= t_scale-1;
+					end if;
+				else
+					t_scale_n <= t_scale + 1;
+				end if;
+			end if;
+			if ts_btn_sh(0)='0' and ts_btn_sh(1)='1' then
+				ts_state_n <= ts_state-1;
+				if ts_state>signed(0,8) then
+					if ts_state_n=signed(0,8) then
+						t_scale_n <= to_unsigned(1,12);
+					else
+						t_scale_n <= t_scale-1;
+					end if;
+				else
+					t_scale_n <= t_scale + 1;
+				end if;
+			end if;
+			if frame='1' then
+				ts_state <= ts_state_n;
+				t_scale <= t_scale_n;
+			end if;
+
+			--Left/Right buttons--
 			lr_btn_sh(4)<=pio20; -- upper 4 bits for LEFT shift button
 			lr_btn_sh(5)<=lr_btn_sh(4);
 			lr_btn_sh(6)<=lr_btn_sh(5);
@@ -255,7 +276,7 @@ begin
 			if frame='1' then
 				h_shift<=h_shift_next;
 			end if;
-		---*** DO NOT TOUCH: Works! ***---
+
 			--Up/Down Buttons--
 			ud_btn_sh(4)<=pio23; -- upper 4 bits for UP shift button
 			ud_btn_sh(5)<=ud_btn_sh(4);
@@ -285,24 +306,42 @@ begin
 			vs_btn_sh(1)<=vs_btn_sh(2);
 			vs_btn_sh(0)<=vs_btn_sh(1); -- use bits 0,1 for edge detection
 			if vs_btn_sh(7)='0' and vs_btn_sh(6)='1' then
-				gn_state_n <= gn_state + 1;
-				if gn_state<to_signed(0,8) then
-					gain_next <= gain - 1;
-				elsif gn_state>to_signed(0,8) then
-					gain_next <= gain + 1;
+				gn_state_n <= gn_state+1;
+				if gn_state<signed(0,8) then
+					if gn_state_n=signed(0,8) then
+						gain_next <= to_unsigned(1,12);
+					else
+						gain_next <= gain-1;
+					end if;
 				else
-					gain_next <= to_unsigned(1,12);
+					gain_next <= gain+1;
 				end if;
+				-- if gn_state<to_signed(0,8) then
+				-- 	gain_next <= gain - 1;
+				-- elsif gn_state>to_signed(0,8) then
+				-- 	gain_next <= gain + 1;
+				-- else
+				-- 	gain_next <= to_unsigned(1,12);
+				-- end if;
 			end if;
 			if vs_btn_sh(0)='0' and vs_btn_sh(1)='1' then
 				gn_state_n <= gn_state - 1;
-				if gn_state>to_signed(0,8) then
-					gain_next <= gain - 1;
-				elsif gn_state<to_signed(0,8) then
-					gain_next <= gain + 1;
+				if gn_state>signed(0,8) then
+					if gn_state_n=signed(0,8) then
+						gain_next <= to_unsigned(1,12);
+					else 
+						gain_next <= gain-1;
+					end if;
 				else
-					gain_next <= to_unsigned(1,12);
+					gain_next <= gain+1;
 				end if;
+				-- if gn_state>to_signed(0,8) then
+				-- 	gain_next <= gain - 1;
+				-- elsif gn_state<to_signed(0,8) then
+				-- 	gain_next <= gain + 1;
+				-- else
+				-- 	gain_next <= to_unsigned(1,12);
+				-- end if;
 			end if;
 			if frame='1' then
 				gn_state<=gn_state_n;
@@ -315,8 +354,10 @@ begin
 	-- RAM from Buffer Chain logic
 	------------------------------------------------------------------
 	addr_a <= ram_idx; --std_logic_vector(hcount);
-	-- ram_idx <= hcount*t_scale + h_shift;
-	ram_idx <= std_logic_vector(signed(hcount) + h_shift);
+	ram_idx <= std_logic_vector(signed(hcount*t_scale) + h_shift) when 
+				ts_state>=to_signed(0,8) else
+				std_logic_vector(signed(hcount/t_scale) + h_shift);
+	-- ram_idx <= std_logic_vector(signed(hcount) + h_shift);
 	--* Switch ram block to read from after each frame * --
 	process(clkfx) -- clkfx from cmt2 25.2 MHz for VGA
 	begin
@@ -589,13 +630,13 @@ begin
                 grd_grn<=b"00";
                 grd_blu<=b"00";
             end if;
-			
+			-- Apply gain
 			if gn_state>=to_signed(0,8) then
 				scaled_sig <= grid_top+grid_height- gain*unsigned(dataa(11 downto 0))/ratio;
 			else
 				scaled_sig(11 downto 0) <= grid_top+grid_height- unsigned(dataa(11 downto 0))/ratio/gain;
 			end if;
-			-- Draw line
+			-- Apply shift, draw line
             if vcount>=grid_top and vcount<=grid_bottom and hcount>=grid_left and hcount<=grid_right and
 				vcount=unsigned(signed(scaled_sig)+v_shift) then	--unsigned(dataa(11 downto 0))/(4096/grid-height)
 				line_red<=b"00";            

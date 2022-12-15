@@ -123,7 +123,7 @@ architecture arch of Oscilliscope is
 	signal v_shift:		signed(11 downto 0):=to_signed(0,12);
 	signal v_shift_next:signed(11 downto 0):=to_signed(0,12);
 	--Horizontal scaling/shifting--
-	signal ram_idx:		std_logic_vector(9 downto 0);
+	signal ram_idx:		std_logic_vector(19 downto 0);
 	signal ts_state:    signed(7 downto 0):=(others=>'0');
 	signal ts_state_n:  signed(7 downto 0):=(others=>'0');
 	signal t_scale:		unsigned(9 downto 0):=to_unsigned(1,10);
@@ -353,7 +353,7 @@ begin
 	------------------------------------------------------------------
 	-- RAM from Buffer Chain logic
 	------------------------------------------------------------------
-	addr_a <= ram_idx; --std_logic_vector(hcount);
+	addr_a <= ram_idx(9 downto 0); --std_logic_vector(hcount);
 	-- TODO: FIX overflow from multiplication -> use mod space?
 	ram_idx <= std_logic_vector(signed(hcount*t_scale) + h_shift) when 
 				ts_state>=to_signed(0,8) else

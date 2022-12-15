@@ -231,9 +231,9 @@ begin
 			ts_btn_sh(0)<=ts_btn_sh(1); -- use bits 0,1 for edge detection
 			if ts_btn_sh(7)='0' and ts_btn_sh(6)='1' then
 				ts_state_n <= ts_state+1;
-				if ts_state<signed(0,8) then
-					if ts_state_n=signed(0,8) then
-						t_scale_n <= to_unsigned(1,12);
+				if ts_state<to_signed(0,8) then
+					if ts_state_n=to_signed(0,8) then
+						t_scale_n <= to_unsigned(1,10);
 					else
 						t_scale_n <= t_scale-1;
 					end if;
@@ -243,9 +243,9 @@ begin
 			end if;
 			if ts_btn_sh(0)='0' and ts_btn_sh(1)='1' then
 				ts_state_n <= ts_state-1;
-				if ts_state>signed(0,8) then
-					if ts_state_n=signed(0,8) then
-						t_scale_n <= to_unsigned(1,12);
+				if ts_state>to_signed(0,8) then
+					if ts_state_n=to_signed(0,8) then
+						t_scale_n <= to_unsigned(1,10);
 					else
 						t_scale_n <= t_scale-1;
 					end if;
@@ -307,8 +307,8 @@ begin
 			vs_btn_sh(0)<=vs_btn_sh(1); -- use bits 0,1 for edge detection
 			if vs_btn_sh(7)='0' and vs_btn_sh(6)='1' then
 				gn_state_n <= gn_state+1;
-				if gn_state<signed(0,8) then
-					if gn_state_n=signed(0,8) then
+				if gn_state<to_signed(0,8) then
+					if gn_state_n=to_signed(0,8) then
 						gain_next <= to_unsigned(1,12);
 					else
 						gain_next <= gain-1;
@@ -326,8 +326,8 @@ begin
 			end if;
 			if vs_btn_sh(0)='0' and vs_btn_sh(1)='1' then
 				gn_state_n <= gn_state - 1;
-				if gn_state>signed(0,8) then
-					if gn_state_n=signed(0,8) then
+				if gn_state>to_signed(0,8) then
+					if gn_state_n=to_signed(0,8) then
 						gain_next <= to_unsigned(1,12);
 					else 
 						gain_next <= gain-1;
@@ -354,6 +354,7 @@ begin
 	-- RAM from Buffer Chain logic
 	------------------------------------------------------------------
 	addr_a <= ram_idx; --std_logic_vector(hcount);
+	-- TODO: FIX overflow from multiplication -> use mod space?
 	ram_idx <= std_logic_vector(signed(hcount*t_scale) + h_shift) when 
 				ts_state>=to_signed(0,8) else
 				std_logic_vector(signed(hcount/t_scale) + h_shift);

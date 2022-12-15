@@ -24,6 +24,10 @@
 
 - `Oscilloscope` in Oscilloscope.xdc
 
+### **12/15/2022 15:28**
+gn_state| ... | -3 | -2 | -1 |  0 |  1 |  2 |  3 | ...
+gain    | ... | /3 | /2 | /2 | *1 | *2 | *3 | *4 | ...
+
 ### **12/14/2022 10:57 AM**
 Lines 108-116: signals for scaling/shifting
 Lines 189+   : TODOs and description in section titled "Button Metastability Logic"

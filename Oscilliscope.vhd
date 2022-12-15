@@ -357,7 +357,7 @@ begin
 	-- TODO: FIX overflow from multiplication -> use mod space?
 	ram_idx <= std_logic_vector(signed(hcount*t_scale) + h_shift) when 
 				ts_state>=to_signed(0,8) else
-				std_logic_vector(signed(hcount/t_scale) + h_shift);
+				b"0000_0000_00"&std_logic_vector(signed(hcount/t_scale) + h_shift);
 	-- ram_idx <= std_logic_vector(signed(hcount) + h_shift);
 	--* Switch ram block to read from after each frame * --
 	process(clkfx) -- clkfx from cmt2 25.2 MHz for VGA

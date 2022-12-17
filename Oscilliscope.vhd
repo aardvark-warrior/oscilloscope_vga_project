@@ -96,7 +96,7 @@ architecture arch of Oscilliscope is
 	signal adc_loc_next: 	unsigned(1 downto 0);
 	signal vga_loc: 		unsigned(1 downto 0):=b"00";	-- track vga location in buffer chain
 	signal vga_loc_next: 	unsigned(1 downto 0);
-	signal prev_adc: 		unsigned(1 downto 0);
+	signal prev_adc: 		unsigned(1 downto 0):=b"00";
 	signal dataa0: 	std_logic_vector(35 downto 0); 	
 	signal dataa1: 	std_logic_vector(35 downto 0); 	
 	signal dataa2: 	std_logic_vector(35 downto 0); 	
@@ -150,7 +150,7 @@ architecture arch of Oscilliscope is
 	signal vs_btn_sh:	std_logic_vector(7 downto 0):=(others=>'0'); -- upper 4 bits (voltage scale up),lower 4 bits (scale down)
 	signal ts_btn_sh:   std_logic_vector(7 downto 0):=(others=>'0'); -- upper 4 bits (time stretch), 	lower 4 bits (time compress)
 	signal trig_btn_sh: std_logic_vector(7 downto 0):=(others=>'0');
-	signal ram_led:   	std_logic_vector(3 downto 0):=(others=>'0');
+	signal ram_led:   	std_logic_vector(3 downto 0);
 	--Trigger
 	signal detected:		std_logic:='0';
 	signal init:			std_logic:='1';
@@ -389,7 +389,7 @@ begin
 	process(fclk) 
 	begin
 		-- Select next ram in buffer chain, skipping vga_loc
-		if adc_loc=prev_adc-1 then -- vga_loc vs. prev_adc_loc
+		if adc_loc=vga_loc-1 then -- vga_loc vs. prev_adc_loc
 			adc_loc_next <= vga_loc+1;
 		else
 			adc_loc_next <= adc_loc+1;
@@ -408,17 +408,16 @@ begin
 				elsif unsigned(addrb)>=grid_width/2 and detected='1' and fin_write='0' then
 					if unsigned(addrb)=unsigned(tr_addr)+(grid_width/2-1) then --to_unsigned(grid_width/to_unsigned(2,10)-to_unsigned(1,10),10) then
 						fin_write <='1';
-						-- adc_loc <= adc_loc_next;
 					end if;
 				end if;
 
 				if (addrb=std_logic_vector(to_unsigned(samples-1,10))) or fin_write='1'  then
-					addrb<=b"00_0000_0000";
-					-- if fin_write='1' then
+					if fin_write='1' then
 						fin_write <='0';
 						detected <= '0';
 						adc_loc <= adc_loc_next;	-- Only update adc_loc when finished writing a ram block
-					-- end if;
+					end if;
+					addrb<=b"00_0000_0000";
 					-- set write enable
 					if adc_loc_next=to_unsigned(0,2) then
 						web <= (0=>rdy,others=>'0');
@@ -435,19 +434,19 @@ begin
 					if adc_loc=to_unsigned(0,2) then
 						web <= (0=>rdy,others=>'0');
 						tr_addr0 <= tr_addr;
-						ram_led <= b"0001";
+						ram_led(3 downto 2) <= b"00";
 					elsif adc_loc=to_unsigned(1,2) then
 						web <= (1=>rdy,others=>'0');
 						tr_addr1 <= tr_addr;
-						ram_led <= b"0010";
+						ram_led(3 downto 2) <= b"01";
 					elsif adc_loc=to_unsigned(2,2) then
 						web <= (2=>rdy,others=>'0');
 						tr_addr2 <= tr_addr;
-						ram_led <= b"0100";
+						ram_led(3 downto 2) <= b"10";
 					else
 						web <= (3=>rdy,others=>'0');
 						tr_addr3 <= tr_addr;
-						ram_led <= b"1000";
+						ram_led(3 downto 2) <= b"11";
 					end if;
 				end if;
 			else
@@ -474,17 +473,18 @@ begin
 		-- 	vga_loc_next <= adc_loc-1;
 		-- end if;
 		vga_loc_next <= prev_adc;
-		if prev_adc=b"00" then
-			read_addr_n <= std_logic_vector(unsigned(tr_addr0)-grid_width/2);
-		elsif prev_adc=b"01" then
-			read_addr_n <= std_logic_vector(unsigned(tr_addr1)-grid_width/2);
-		elsif prev_adc=b"10" then
-			read_addr_n <= std_logic_vector(unsigned(tr_addr2)-grid_width/2);
-		else
-			read_addr_n <= std_logic_vector(unsigned(tr_addr3)-grid_width/2);
-		end if;
 
 		if rising_edge(clkfx) then
+			if prev_adc=b"00" then
+				read_addr_n <= std_logic_vector(unsigned(tr_addr0)-grid_width/2);
+			elsif prev_adc=b"01" then
+				read_addr_n <= std_logic_vector(unsigned(tr_addr1)-grid_width/2);
+			elsif prev_adc=b"10" then
+				read_addr_n <= std_logic_vector(unsigned(tr_addr2)-grid_width/2);
+			else
+				read_addr_n <= std_logic_vector(unsigned(tr_addr3)-grid_width/2);
+			end if;
+
 			if unsigned(ram_idx)>=unsigned(read_addr)+grid_width-1 then
 				ram_idx <= read_addr;
 			else
@@ -505,16 +505,16 @@ begin
 			else
 				if vga_loc=to_unsigned(0,2) then
 					dataa <= dataa0;
-					-- ram_led <= b"0001";
+					ram_led(1 downto 0) <= b"00";
 				elsif vga_loc<=to_unsigned(1,2) then
 					dataa <= dataa1;
-					-- ram_led <= b"0010";
+					ram_led(1 downto 0) <= b"01";
 				elsif vga_loc<=to_unsigned(2,2) then
 					dataa <= dataa2;
-					-- ram_led <= b"0100";
+					ram_led(1 downto 0) <= b"10";
 				else
 					dataa <= dataa3;
-					-- ram_led <= b"1000";
+					ram_led(1 downto 0) <= b"11";
 				end if;
 			end if;
 		end if;

@@ -81,12 +81,12 @@ architecture arch of Oscilliscope is
 		);
 	end component;
 	--XADC--
-	constant samples: natural:=960;
+	constant samples: natural:=480;
 	signal fclk:    std_logic;
 	signal rdy:  	std_logic;
 	signal out31: 	std_logic;
 	signal web: 	std_logic_vector(3 downto 0):= b"0000";
-	signal counter: unsigned(10 downto 0):= b"00000000001";
+	signal counter: unsigned(10 downto 0):= b"00000000001";		-- for generated square wave frequency
 	signal addra: 	std_logic_vector(9 downto 0); 	-- driven by gui
 	signal addr_a:	std_logic_vector(9 downto 0); 	-- driven by VGA hcount
 	signal dataa: 	std_logic_vector(35 downto 0); 	-- original scope reading from RAM ...
@@ -113,6 +113,9 @@ architecture arch of Oscilliscope is
 	signal line_red: std_logic_vector(1 downto 0):=(others=>'0');  -- reading
 	signal line_grn: std_logic_vector(1 downto 0):=(others=>'0');
 	signal line_blu: std_logic_vector(1 downto 0):=(others=>'0');
+	signal trig_red: std_logic_vector(1 downto 0):=(others=>'0');  -- trigger level indicator
+	signal trig_grn: std_logic_vector(1 downto 0):=(others=>'0');
+	signal trig_blu: std_logic_vector(1 downto 0):=(others=>'0');
 	signal screen_red: 	std_logic_vector(1 downto 0):=(others=>'0');  -- screen -> reading over grid
 	signal screen_grn: 	std_logic_vector(1 downto 0):=(others=>'0');
 	signal screen_blu: 	std_logic_vector(1 downto 0):=(others=>'0');
@@ -137,15 +140,24 @@ architecture arch of Oscilliscope is
 	signal grid_top: 	unsigned(9 downto 0):=to_unsigned(0,10);
 	signal grid_left: 	unsigned(9 downto 0):=to_unsigned(0,10);
 	signal grid_bottom: unsigned(9 downto 0):=to_unsigned(256,10); -- 10 + (256-1)
-	signal grid_right: 	unsigned(9 downto 0):=to_unsigned(512,10); -- 10 + (330-1)
-	signal grid_width: 	unsigned(9 downto 0):=to_unsigned(512,10);
+	signal grid_right: 	unsigned(9 downto 0):=to_unsigned(480,10); -- 10 + (330-1)
+	signal grid_width: 	unsigned(9 downto 0):=to_unsigned(480,10);
 	signal grid_height: unsigned(9 downto 0):=to_unsigned(256,10);
 	--Button shift registers-- upper 4 bits shift from 4->7, lower 4 shift 3->0
 	signal ud_btn_sh: 	std_logic_vector(7 downto 0):=(others=>'0'); -- upper 4 bits (shift up), 		lower 4 bits (shift down)
 	signal lr_btn_sh:   std_logic_vector(7 downto 0):=(others=>'0'); -- upper 4 bits (shift left), 		lower 4 bits (shift right)
 	signal vs_btn_sh:	std_logic_vector(7 downto 0):=(others=>'0'); -- upper 4 bits (voltage scale up),lower 4 bits (scale down)
 	signal ts_btn_sh:   std_logic_vector(7 downto 0):=(others=>'0'); -- upper 4 bits (time stretch), 	lower 4 bits (time compress)
+	signal trig_btn_sh: std_logic_vector(7 downto 0):=(others=>'0');
 	signal ram_led:   	std_logic_vector(3 downto 0);
+	--Trigger
+	signal detected:	std_logic;
+	signal tr_addr:		std_logic_vector(9 downto 0);
+	signal thresh:		unsigned(11 downto 0):=to_unsigned(4095,12);
+	signal thresh_n:	unsigned(11 downto 0);
+	constant thresh_inc:	unsigned(11 downto 0):=to_unsigned(48,12);
+	signal scaled_trig:	unsigned(11 downto 0);	-- scaled_tr <= grid_height - thresh/ratio;
+
 
 begin
     --BEGIN WITH OSCILLISCOPE MEASUREMENT
@@ -220,9 +232,31 @@ begin
 	pio21 <= '1'; -- btns pio23,22
 	pio18 <= '1'; -- btns pio20,19
 	pio9  <= '1'; -- btns pio17,16
+	pio6  <= '1'; -- btns pio8,7
 	process(clkfx)
 	begin
 		if rising_edge(clkfx) then
+			--Trigger toggling--
+			trig_btn_sh(4)<=pio8;
+			trig_btn_sh(5)<=trig_btn_sh(4);
+			trig_btn_sh(6)<=trig_btn_sh(5);
+			trig_btn_sh(7)<=trig_btn_sh(6);
+			trig_btn_sh(3)<=pio7;
+			trig_btn_sh(2)<=trig_btn_sh(3);
+			trig_btn_sh(1)<=trig_btn_sh(2);
+			trig_btn_sh(0)<=trig_btn_sh(1);
+			if trig_btn_sh(7)='0' and trig_btn_sh(6)='1' and
+				thresh<=to_unsigned(4095,12)-thresh_inc then
+				thresh_n <= thresh + thresh_inc;
+			end if;
+			if trig_btn_sh(0)='0' and trig_btn_sh(1)='1' and
+				thresh>=to_unsigned(0,12)+thresh_inc then
+				thresh_n <= thresh - thresh_inc;
+			end if;
+			if frame='1' then
+				thresh_n <= thresh;
+			end if;
+
 			--Time scale buttons--
 			ts_btn_sh(4)<=pio17; -- upper 4 bits for stretch time button
 			ts_btn_sh(5)<=ts_btn_sh(4);
@@ -607,10 +641,7 @@ begin
 	-- VGA Output: Grid, Trace
 	------------------------------------------------------------------
 	ratio <= 4096/grid_height;
-	-- str_signal <= unsigned(dataa(11 downto 0))/ratio * gain;
-	-- shf_signal <= signed(str_signal) + v_shift;
-	-- str_hcount <= hcount * h_stretch;
-	-- shf_hcount <= signed(str_hcount) + h_shift;
+	scaled_trig <= grid_height-thresh/ratio;
 	process(clkfx,grd_red,grd_blu,grd_grn,line_red,line_grn,line_blu)
     begin
         if rising_edge(clkfx) then
@@ -651,18 +682,34 @@ begin
 				line_grn<=b"00";
 				line_blu<=b"00";
 			end if;
+			if vcount>=grid_top and vcount<=grid_bottom and hcount>=grid_left and hcount<=grid_right and
+				vcount=scaled_trig then
+				trig_red<=b"00";
+				trig_grn<=b"00";
+				trig_blu<=b"11";
+			else
+				trig_red<=b"00";
+				trig_grn<=b"00";
+				trig_blu<=b"00";
+			end if;
         end if;
 
 		-- Make trace appear before grid
-        if (line_red=b"00" and line_grn=b"00" and line_blu=b"00") then
-            screen_red <= grd_red;
-            screen_grn <= grd_grn;
-            screen_blu <= grd_blu;
-	    else
-            screen_red <= line_red;
-            screen_grn <= line_grn;
-            screen_blu <= line_blu;
-	end if;
+		if (trig_red=b"00" and trig_grn=b"00" and trig_blu=b"00") then
+			if (line_red=b"00" and line_grn=b"00" and line_blu=b"00") then
+				screen_red <= grd_red;
+				screen_grn <= grd_grn;
+				screen_blu <= grd_blu;
+			else
+				screen_red <= line_red;
+				screen_grn <= line_grn;
+				screen_blu <= line_blu;
+			end if;
+		else
+			screen_red <= trig_red;
+			screen_grn <= trig_grn;
+			screen_blu <= trig_blu;
+		end if;
     end process;
 
 	------------------------------------------------------------------

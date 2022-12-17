@@ -31,7 +31,10 @@ entity Oscilliscope is
 		pio18:	out std_logic;
 		pio17:	in	std_logic;
 		pio16:	in	std_logic;
-		pio9:	out std_logic
+		pio9:	out std_logic;
+		pio8:	in	std_logic;
+		pio7:	in	std_logic;
+		pio6:	out std_logic
 	);
 end Oscilliscope;
 

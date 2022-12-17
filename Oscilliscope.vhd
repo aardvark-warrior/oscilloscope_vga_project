@@ -81,7 +81,7 @@ architecture arch of Oscilliscope is
 		);
 	end component;
 	--XADC--
-	constant samples: natural:=480;
+	constant samples: natural:=1024;
 	signal fclk:    std_logic;
 	signal rdy:  	std_logic;
 	signal out31: 	std_logic;
@@ -150,9 +150,10 @@ architecture arch of Oscilliscope is
 	signal vs_btn_sh:	std_logic_vector(7 downto 0):=(others=>'0'); -- upper 4 bits (voltage scale up),lower 4 bits (scale down)
 	signal ts_btn_sh:   std_logic_vector(7 downto 0):=(others=>'0'); -- upper 4 bits (time stretch), 	lower 4 bits (time compress)
 	signal trig_btn_sh: std_logic_vector(7 downto 0):=(others=>'0');
-	signal ram_led:   	std_logic_vector(3 downto 0);
+	signal ram_led:   	std_logic_vector(3 downto 0):=(others=>'0');
 	--Trigger
 	signal detected:		std_logic:='0';
+	signal init:			std_logic:='1';
 	signal fin_write:		std_logic:='0';
 	signal tr_addr:			std_logic_vector(9 downto 0);
 	signal tr_addr0:		std_logic_vector(9 downto 0);
@@ -388,7 +389,7 @@ begin
 	process(fclk) 
 	begin
 		-- Select next ram in buffer chain, skipping vga_loc
-		if adc_loc=vga_loc-1 then
+		if adc_loc=prev_adc-1 then -- vga_loc vs. prev_adc_loc
 			adc_loc_next <= vga_loc+1;
 		else
 			adc_loc_next <= adc_loc+1;
@@ -399,6 +400,7 @@ begin
 			if rdy='1' then
 				if unsigned(addrb)>=grid_width/2 and detected='0'  then
 					if unsigned(datab(11 downto 0))>=thresh then
+						init <= '0';
 						detected <= '1';
 						prev_adc <= adc_loc;
 						tr_addr	<= addrb;
@@ -412,11 +414,11 @@ begin
 
 				if (addrb=std_logic_vector(to_unsigned(samples-1,10))) or fin_write='1'  then
 					addrb<=b"00_0000_0000";
-					if fin_write='1' then
+					-- if fin_write='1' then
 						fin_write <='0';
 						detected <= '0';
 						adc_loc <= adc_loc_next;	-- Only update adc_loc when finished writing a ram block
-					end if;
+					-- end if;
 					-- set write enable
 					if adc_loc_next=to_unsigned(0,2) then
 						web <= (0=>rdy,others=>'0');
@@ -703,7 +705,7 @@ begin
 			else
 				scaled_sig(11 downto 0) <= grid_top+grid_height- unsigned(dataa(11 downto 0))/ratio/gain;
 			end if;
-            if detected='1' and 
+            if init='0' and 
 				vcount>=grid_top and vcount<=grid_bottom and hcount>=grid_left and hcount<=grid_right and
 				vcount=unsigned(signed(scaled_sig)+v_shift) then	--unsigned(dataa(11 downto 0))/(4096/grid-height)
 				line_red<=b"00";            

@@ -82,41 +82,41 @@ architecture arch of Oscilliscope is
 	end component;
 	--XADC--
 	-- constant samples: natural:=480;
-	signal fclk:    std_logic;
-	signal rdy:  	std_logic;
-	signal out31: 	std_logic;
-	signal web: 	std_logic_vector(3 downto 0):= b"0000";
-	signal counter: unsigned(10 downto 0):= b"00000000001";		-- for generated square wave frequency
+	signal fclk:    	std_logic;
+	signal rdy:  		std_logic;
+	signal out31: 		std_logic;
+	signal web: 		std_logic_vector(3 downto 0):= b"0000";
+	signal counter: 	unsigned(10 downto 0):= b"00000000001";		-- for generated square wave frequency
 	-- signal addra: 	std_logic_vector(9 downto 0); 	-- driven by gui
-	signal addr_a:	std_logic_vector(9 downto 0); 	-- driven by VGA hcount
-	signal dataa: 	std_logic_vector(35 downto 0); 	-- original scope reading from RAM ...
-	signal addrb: 	std_logic_vector(9 downto 0);
-	signal datab: 	std_logic_vector(35 downto 0); 	-- from ADC ...
-	signal dataa0: 	std_logic_vector(35 downto 0); 	
-	signal dataa1: 	std_logic_vector(35 downto 0); 	
-	signal dataa2: 	std_logic_vector(35 downto 0); 	
-	signal dataa3: 	std_logic_vector(35 downto 0); 
+	signal addr_a:		std_logic_vector(9 downto 0); 	-- driven by VGA hcount
+	signal dataa: 		std_logic_vector(35 downto 0); 	-- original scope reading from RAM ...
+	signal addrb: 		std_logic_vector(9 downto 0);
+	signal datab: 		std_logic_vector(35 downto 0); 	-- from ADC ...
+	signal dataa0: 		std_logic_vector(35 downto 0); 	
+	signal dataa1: 		std_logic_vector(35 downto 0); 	
+	signal dataa2: 		std_logic_vector(35 downto 0); 	
+	signal dataa3: 		std_logic_vector(35 downto 0); 
 	signal adc_loc: 		unsigned(1 downto 0):=b"00";	-- track adc location in buffer chain
-	signal adc_loc_next: 	unsigned(1 downto 0);
+	signal adc_loc_n: 	unsigned(1 downto 0);
 	signal vga_loc: 		unsigned(1 downto 0):=b"00";	-- track vga location in buffer chain
-	signal vga_loc_next: 	unsigned(1 downto 0);
+	signal vga_loc_n: 	unsigned(1 downto 0);
 	signal prev_adc: 		unsigned(1 downto 0);	
 	--VGA--
 	signal clkfb:    std_logic;
 	signal clkfx:    std_logic;
-	signal hcount:   unsigned(9 downto 0);
-	signal vcount:   unsigned(9 downto 0);
 	signal blank:    std_logic;
 	signal frame:    std_logic;
-	signal grd_red:  std_logic_vector(1 downto 0):=(others=>'0');  -- grid
-	signal grd_grn:  std_logic_vector(1 downto 0):=(others=>'0');
-	signal grd_blu:  std_logic_vector(1 downto 0):=(others=>'0');
-	signal line_red: std_logic_vector(1 downto 0):=(others=>'0');  -- reading
-	signal line_grn: std_logic_vector(1 downto 0):=(others=>'0');
-	signal line_blu: std_logic_vector(1 downto 0):=(others=>'0');
-	signal trig_red: std_logic_vector(1 downto 0):=(others=>'0');  -- trigger level indicator
-	signal trig_grn: std_logic_vector(1 downto 0):=(others=>'0');
-	signal trig_blu: std_logic_vector(1 downto 0):=(others=>'0');
+	signal hcount:   unsigned(9 downto 0);
+	signal vcount:   unsigned(9 downto 0);
+	signal grd_red:  	std_logic_vector(1 downto 0):=(others=>'0');  -- grid
+	signal grd_grn:  	std_logic_vector(1 downto 0):=(others=>'0');
+	signal grd_blu:  	std_logic_vector(1 downto 0):=(others=>'0');
+	signal line_red: 	std_logic_vector(1 downto 0):=(others=>'0');  -- reading
+	signal line_grn: 	std_logic_vector(1 downto 0):=(others=>'0');
+	signal line_blu: 	std_logic_vector(1 downto 0):=(others=>'0');
+	signal trig_red: 	std_logic_vector(1 downto 0):=(others=>'0');  -- trigger level indicator
+	signal trig_grn: 	std_logic_vector(1 downto 0):=(others=>'0');
+	signal trig_blu: 	std_logic_vector(1 downto 0):=(others=>'0');
 	signal screen_red: 	std_logic_vector(1 downto 0):=(others=>'0');  -- screen -> reading over grid
 	signal screen_grn: 	std_logic_vector(1 downto 0):=(others=>'0');
 	signal screen_blu: 	std_logic_vector(1 downto 0):=(others=>'0');
@@ -126,9 +126,9 @@ architecture arch of Oscilliscope is
 	signal gn_state:	signed(7 downto 0):=(others=>'0');	
 	signal gn_state_n:	signed(7 downto 0):=(others=>'0');
 	signal gain:		unsigned(11 downto 0):=to_unsigned(1,12);	
-	signal gain_next:	unsigned(11 downto 0):=to_unsigned(1,12);
+	signal gain_n:	unsigned(11 downto 0):=to_unsigned(1,12);
 	signal v_shift:		signed(11 downto 0):=to_signed(0,12);
-	signal v_shift_next:signed(11 downto 0):=to_signed(0,12);
+	signal v_shift_n	:signed(11 downto 0):=to_signed(0,12);
 	--Horizontal scaling/shifting--
 	signal ram_idx:		std_logic_vector(9 downto 0);
 	signal ts_state:    signed(7 downto 0):=(others=>'0');
@@ -136,7 +136,7 @@ architecture arch of Oscilliscope is
 	signal t_scale:		unsigned(9 downto 0):=to_unsigned(1,10);
 	signal t_scale_n:   unsigned(9 downto 0):=to_unsigned(1,10);
 	signal h_shift:		signed(9 downto 0):=to_signed(0,10);
-	signal h_shift_next:signed(9 downto 0):=to_signed(0,10);
+	signal h_shift_n:	signed(9 downto 0):=to_signed(0,10);
 	--Dimensions of scope grid--
 	signal grid_top: 	unsigned(9 downto 0):=to_unsigned(0,10);
 	signal grid_left: 	unsigned(9 downto 0):=to_unsigned(0,10);
@@ -307,13 +307,13 @@ begin
 			lr_btn_sh(1)<=lr_btn_sh(2);
 			lr_btn_sh(0)<=lr_btn_sh(1); -- use bits 0,1 for edge detection
 			if lr_btn_sh(7)='0' and lr_btn_sh(6)='1' then
-				h_shift_next<=h_shift+to_signed(-5,10);
+				h_shift_n<=h_shift+to_signed(-5,10);
 			end if;
 			if lr_btn_sh(0)='0' and lr_btn_sh(1)='1' then
-				h_shift_next<=h_shift+to_signed(5,10);
+				h_shift_n<=h_shift+to_signed(5,10);
 			end if;
 			if frame='1' then
-				h_shift<=h_shift_next;
+				h_shift<=h_shift_n;
 			end if;
 
 			--Up/Down Buttons--
@@ -326,13 +326,13 @@ begin
 			ud_btn_sh(1)<=ud_btn_sh(2);
 			ud_btn_sh(0)<=ud_btn_sh(1); -- use bits 0,1 for edge detection
 			if ud_btn_sh(7)='0' and ud_btn_sh(6)='1' then
-				v_shift_next<=v_shift+to_signed(-5,12);
+				v_shift_n<=v_shift+to_signed(-5,12);
 			end if;
 			if ud_btn_sh(0)='0' and ud_btn_sh(1)='1' then
-				v_shift_next<=v_shift+to_signed(5,12);
+				v_shift_n<=v_shift+to_signed(5,12);
 			end if;
 			if frame='1' then
-				v_shift<=v_shift_next;
+				v_shift<=v_shift_n;
 			end if;
 
 			--Vertical-scale Buttons--
@@ -348,29 +348,29 @@ begin
 				gn_state_n <= gn_state+1;
 				if gn_state<to_signed(0,8) then
 					if gn_state_n=to_signed(0,8) then
-						gain_next <= to_unsigned(1,12);
+						gain_n <= to_unsigned(1,12);
 					else
-						gain_next <= gain-1;
+						gain_n <= gain-1;
 					end if;
 				else
-					gain_next <= gain+1;
+					gain_n <= gain+1;
 				end if;
 			end if;
 			if vs_btn_sh(0)='0' and vs_btn_sh(1)='1' then
 				gn_state_n <= gn_state - 1;
 				if gn_state>to_signed(0,8) then
 					if gn_state_n=to_signed(0,8) then
-						gain_next <= to_unsigned(1,12);
+						gain_n <= to_unsigned(1,12);
 					else 
-						gain_next <= gain-1;
+						gain_n <= gain-1;
 					end if;
 				else
-					gain_next <= gain+1;
+					gain_n <= gain+1;
 				end if;
 			end if;
 			if frame='1' then
 				gn_state<=gn_state_n;
-				gain<=gain_next;
+				gain<=gain_n;
 			end if;
 		end if;
 	end process;
@@ -383,9 +383,9 @@ begin
 	begin
 		-- Select next ram in buffer chain, skipping vga_loc
 		if adc_loc=vga_loc-1 then
-			adc_loc_next <= vga_loc+1;
+			adc_loc_n <= vga_loc+1;
 		else
-			adc_loc_next <= adc_loc+1;
+			adc_loc_n <= adc_loc+1;
 		end if;
 
 		if rising_edge(fclk) then -- fclk from cmt 52 MHz for ADC; rdy is synced with fclk
@@ -393,14 +393,14 @@ begin
 				-- Transition from State 3->1: Save last-used RAM, Move to next RAM, Reset addrb and detected flag
 				if (addrb = std_logic_vector(signed(unsigned(tr_addr) + grid_width/2 - 1) + h_shift))  and detected = '1' then
 					prev_adc <= adc_loc;
-					adc_loc <= adc_loc_next;
+					adc_loc <= adc_loc_n;
 					addrb <= b"00_0000_0000";
 					detected <= '0';
-					if adc_loc_next = b"00" then
+					if adc_loc_n = b"00" then
 						web <= (0=>rdy,others=>'0');
-					elsif adc_loc_next = b"01" then
+					elsif adc_loc_n = b"01" then
 						web <= (1=>rdy,others=>'0');
-					elsif adc_loc_next = b"10" then
+					elsif adc_loc_n = b"10" then
 						web <= (2=>rdy,others=>'0');
 					else
 						web <= (3=>rdy,others=>'0');
@@ -449,7 +449,7 @@ begin
 	process(clkfx) -- clkfx from cmt2 25.2 MHz for VGA
 	begin
 		--Set next vga_loc to last RAM used by ADC
-		vga_loc_next <= prev_adc;
+		vga_loc_n <= prev_adc;
 		--Set addr to start reading at for next RAM
 		if prev_adc=b"00" then
 			read_addr_n <= std_logic_vector(unsigned(tr_addr0)-grid_width/2);
@@ -464,13 +464,13 @@ begin
 		if rising_edge(clkfx) then
 			--On new frame, select new RAM-block and set the starting address for VGA read
 			if frame='1' then
-				vga_loc <= vga_loc_next;	
+				vga_loc <= vga_loc_n;	
 				read_addr <= read_addr_n;
-				if vga_loc_next=to_unsigned(0,2) then
+				if vga_loc_n=to_unsigned(0,2) then
 					dataa <= dataa0;
-				elsif vga_loc_next<=to_unsigned(1,2) then
+				elsif vga_loc_n<=to_unsigned(1,2) then
 					dataa <= dataa1;
-				elsif vga_loc_next<=to_unsigned(2,2) then
+				elsif vga_loc_n<=to_unsigned(2,2) then
 					dataa <= dataa2;
 				else
 					dataa <= dataa3;

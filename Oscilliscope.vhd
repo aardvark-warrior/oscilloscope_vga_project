@@ -167,7 +167,7 @@ architecture arch of Oscilliscope is
 	signal scaled_trig:	unsigned(11 downto 0);			-- scaled_tr <= grid_height - thresh/ratio;
 	signal lvl:			unsigned(11 downto 0):=to_unsigned(3900,12);
 	signal lvl_n:		unsigned(11 downto 0):=to_unsigned(3900,12);
-	constant lvl_inc:	unsigned(11 downto 0):=to_unsigned(160,12);
+	constant lvl_step:	unsigned(11 downto 0):=to_unsigned(160,12);
 
 
 begin
@@ -250,12 +250,12 @@ begin
 			trig_btn_sh(1)<=trig_btn_sh(2);
 			trig_btn_sh(0)<=trig_btn_sh(1);
 			if trig_btn_sh(7)='0' and trig_btn_sh(6)='1' and
-				lvl<=to_unsigned(4095,12)-lvl_inc then
-				lvl_n <= lvl + lvl_inc;
+				lvl<=to_unsigned(4095,12)-lvl_step then
+				lvl_n <= lvl + lvl_step;
 			end if;
 			if trig_btn_sh(0)='0' and trig_btn_sh(1)='1' and
-				lvl>=to_unsigned(0,12)+lvl_inc then
-				lvl_n <= lvl - lvl_inc;
+				lvl>=to_unsigned(0,12)+lvl_step then
+				lvl_n <= lvl - lvl_step;
 			end if;
 			if frame='1' then
 				lvl <= lvl_n;

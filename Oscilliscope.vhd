@@ -167,7 +167,7 @@ architecture arch of Oscilliscope is
 	signal scaled_trig:	unsigned(11 downto 0);			-- scaled_tr <= grid_height - thresh/ratio;
 	signal lvl:			unsigned(11 downto 0):=to_unsigned(3900,12);
 	signal lvl_n:		unsigned(11 downto 0):=to_unsigned(3900,12);
-	constant lvl_inc:	unsigned(11 downto 0):=to_unsigned(48,12);
+	constant lvl_inc:	unsigned(11 downto 0):=to_unsigned(160,12);
 
 
 begin
@@ -383,7 +383,7 @@ begin
 	-- ADC Write Buffer Chain
 	------------------------------------------------------------------
 	led <= ram_led;
-	process(fclk) 
+	process(fclk,adc_loc,vga_loc) 
 	begin
 		-- Select next ram in buffer chain, skipping vga_loc
 		if adc_loc=vga_loc-1 then
@@ -455,7 +455,7 @@ begin
 	-- RAM read from Buffer Chain 
 	------------------------------------------------------------------
 	addr_a <= ram_idx(9 downto 0); 
-	process(clkfx) -- clkfx from cmt2 25.2 MHz for VGA
+	process(clkfx,prev_adc,tr_addr0,tr_addr1,tr_addr2,tr_addr3) -- clkfx from cmt2 25.2 MHz for VGA
 	begin
 		--Set next vga_loc to last RAM used by ADC
 		vga_loc_n <= prev_adc;

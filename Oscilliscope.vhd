@@ -34,7 +34,10 @@ entity Oscilliscope is
 		pio9:	out std_logic;
 		pio8:	in	std_logic;
 		pio7:	in	std_logic;
-		pio6:	out std_logic
+		pio6:	out std_logic;
+		pio5:	in  std_logic;
+		pio4:	in  std_logic;
+		pio3:	out	std_logic
 	);
 end Oscilliscope;
 
@@ -121,8 +124,8 @@ architecture arch of Oscilliscope is
 	-- signal ts_state_n:  signed(7 downto 0):=(others=>'0');
 	signal t_scale:		unsigned(9 downto 0):=to_unsigned(1,10);
 	signal t_scale_n:   unsigned(9 downto 0):=to_unsigned(1,10);
-	signal h_shift:		signed(9 downto 0):=to_signed(0,10);
-	signal h_shift_n:	signed(9 downto 0):=to_signed(0,10);
+	signal tr_h_shift:	signed(9 downto 0):=to_signed(0,10);
+	signal tr_h_shift_n:signed(9 downto 0):=to_signed(0,10);
 	--Dimensions of scope grid
 	signal grid_top: 	unsigned(9 downto 0):=to_unsigned(0,10);
 	signal grid_left: 	unsigned(9 downto 0):=to_unsigned(0,10);
@@ -132,10 +135,11 @@ architecture arch of Oscilliscope is
 	signal grid_width: 	unsigned(9 downto 0):=to_unsigned(480,10);
 	--Button shift registers
 	signal ud_btn_sh: 	std_logic_vector(7 downto 0):=(others=>'0'); 	-- upper 4 bits (shift up), 		lower 4 bits (shift down)
-	signal lr_btn_sh:   std_logic_vector(7 downto 0):=(others=>'0'); 	-- upper 4 bits (shift left), 		lower 4 bits (shift right)
+	--TODO: lr_btn_sh:	std_logic_vector(7 downto 0):=(others=>'0');
 	signal vs_btn_sh:	std_logic_vector(7 downto 0):=(others=>'0'); 	-- upper 4 bits (voltage scale up),lower 4 bits (scale down)
 	signal ts_btn_sh:   std_logic_vector(7 downto 0):=(others=>'0'); 	-- upper 4 bits (time stretch), 	lower 4 bits (time compress)
-	signal trig_btn_sh: std_logic_vector(7 downto 0):=(others=>'0');	-- upper 4 bits (trigger up), 		lower 4 bits (trigger down)
+	signal tr_ud_btn_sh:std_logic_vector(7 downto 0):=(others=>'0');	-- upper 4 bits (trigger up), 		lower 4 bits (trigger down)
+	signal tr_lr_btn_sh:std_logic_vector(7 downto 0):=(others=>'0'); 	-- upper 4 bits (shift left), 		lower 4 bits (shift right)
 	signal ram_led:   	std_logic_vector(3 downto 0);	-- debugging LEDs
 	--Debounce flags and counts
 	signal b23_f:		std_logic:='1';
@@ -242,19 +246,19 @@ begin
 	begin
 		if rising_edge(clkfx) then
 			--Trigger toggling--
-			trig_btn_sh(4)<=pio8;
-			trig_btn_sh(5)<=trig_btn_sh(4);
-			trig_btn_sh(6)<=trig_btn_sh(5);
-			trig_btn_sh(7)<=trig_btn_sh(6);
-			trig_btn_sh(3)<=pio7;
-			trig_btn_sh(2)<=trig_btn_sh(3);
-			trig_btn_sh(1)<=trig_btn_sh(2);
-			trig_btn_sh(0)<=trig_btn_sh(1);
-			if trig_btn_sh(7)='0' and trig_btn_sh(6)='1' and
+			tr_ud_btn_sh(4)<=pio8;
+			tr_ud_btn_sh(5)<=tr_ud_btn_sh(4);
+			tr_ud_btn_sh(6)<=tr_ud_btn_sh(5);
+			tr_ud_btn_sh(7)<=tr_ud_btn_sh(6);
+			tr_ud_btn_sh(3)<=pio7;
+			tr_ud_btn_sh(2)<=tr_ud_btn_sh(3);
+			tr_ud_btn_sh(1)<=tr_ud_btn_sh(2);
+			tr_ud_btn_sh(0)<=tr_ud_btn_sh(1);
+			if tr_ud_btn_sh(7)='0' and tr_ud_btn_sh(6)='1' and
 				lvl<=to_unsigned(4095,12)-lvl_step then
 				lvl_n <= lvl + lvl_step;
 			end if;
-			if trig_btn_sh(0)='0' and trig_btn_sh(1)='1' and
+			if tr_ud_btn_sh(0)='0' and tr_ud_btn_sh(1)='1' and
 				lvl>=to_unsigned(0,12)+lvl_step then
 				lvl_n <= lvl - lvl_step;
 			end if;
@@ -273,31 +277,11 @@ begin
 			ts_btn_sh(0)<=ts_btn_sh(1); -- use bits 0,1 for edge detection
 			if ts_btn_sh(7)='0' and ts_btn_sh(6)='1' then
 				t_scale_n <= t_scale + 1;
-				-- ts_state_n <= ts_state+1;
-				-- if ts_state<to_signed(0,8) then
-				-- 	if ts_state_n=to_signed(0,8) then
-				-- 		t_scale_n <= to_unsigned(1,10);
-				-- 	else
-				-- 		t_scale_n <= t_scale-1;
-				-- 	end if;
-				-- else
-				-- 	t_scale_n <= t_scale + 1;
-				-- end if;
 			end if;
 			if ts_btn_sh(0)='0' and ts_btn_sh(1)='1' then
 				if t_scale > 1 then
 					t_scale_n <= t_scale - 1;
 				end if;
-				-- ts_state_n <= ts_state-1;
-				-- if ts_state>to_signed(0,8) then
-				-- 	if ts_state_n=to_signed(0,8) then
-				-- 		t_scale_n <= to_unsigned(1,10);
-				-- 	else
-				-- 		t_scale_n <= t_scale-1;
-				-- 	end if;
-				-- else
-				-- 	t_scale_n <= t_scale + 1;
-				-- end if;
 			end if;
 			if frame='1' then
 				-- ts_state <= ts_state_n;
@@ -305,22 +289,22 @@ begin
 			end if;
 
 			--Left/Right shift buttons--
-			lr_btn_sh(4)<=pio20; -- upper 4 bits for LEFT shift button
-			lr_btn_sh(5)<=lr_btn_sh(4);
-			lr_btn_sh(6)<=lr_btn_sh(5);
-			lr_btn_sh(7)<=lr_btn_sh(6); -- use bits 7,6 for edge detection
-			lr_btn_sh(3)<=pio19; -- lower 4 bits for RIGHT shift button
-			lr_btn_sh(2)<=lr_btn_sh(3);
-			lr_btn_sh(1)<=lr_btn_sh(2);
-			lr_btn_sh(0)<=lr_btn_sh(1); -- use bits 0,1 for edge detection
-			if lr_btn_sh(7)='0' and lr_btn_sh(6)='1' then
-				h_shift_n<=h_shift+to_signed(-5,10);
+			tr_lr_btn_sh(4)<=pio20; -- upper 4 bits for LEFT shift button
+			tr_lr_btn_sh(5)<=tr_lr_btn_sh(4);
+			tr_lr_btn_sh(6)<=tr_lr_btn_sh(5);
+			tr_lr_btn_sh(7)<=tr_lr_btn_sh(6); -- use bits 7,6 for edge detection
+			tr_lr_btn_sh(3)<=pio19; -- lower 4 bits for RIGHT shift button
+			tr_lr_btn_sh(2)<=tr_lr_btn_sh(3);
+			tr_lr_btn_sh(1)<=tr_lr_btn_sh(2);
+			tr_lr_btn_sh(0)<=tr_lr_btn_sh(1); -- use bits 0,1 for edge detection
+			if tr_lr_btn_sh(7)='0' and tr_lr_btn_sh(6)='1' then
+				tr_h_shift_n<=tr_h_shift+to_signed(-5,10);
 			end if;
-			if lr_btn_sh(0)='0' and lr_btn_sh(1)='1' then
-				h_shift_n<=h_shift+to_signed(5,10);
+			if tr_lr_btn_sh(0)='0' and tr_lr_btn_sh(1)='1' then
+				tr_h_shift_n<=tr_h_shift+to_signed(5,10);
 			end if;
 			if frame='1' then
-				h_shift<=h_shift_n;
+				tr_h_shift<=tr_h_shift_n;
 			end if;
 
 			--Up/Down shift Buttons--
@@ -400,7 +384,7 @@ begin
 		if rising_edge(fclk) then -- fclk from cmt 52 MHz for ADC; rdy is synced with fclk
 			if rdy='1' then
 				-- Transition from State 3->1: Save last-used RAM, Move to next RAM, Reset addrb and detected flag
-				if (addrb = std_logic_vector(signed(unsigned(tr_addr) + grid_width/2 - 1) + h_shift))  and detected = '1' then
+				if (addrb = std_logic_vector(signed(unsigned(tr_addr) + (grid_width/2-1)) + tr_h_shift))  and detected = '1' then	-- t_scale*(grid_width/2-1)
 					prev_adc <= adc_loc;
 					adc_loc <= adc_loc_n;
 					addrb <= b"00_0000_0000";
@@ -440,8 +424,8 @@ begin
 							tr_addr3 <= tr_addr;
 						end if;
 					-- State 2: Waiting for trigger (after reading 240 + h_shift initial values)
-					elsif (signed(addrb) >= signed(grid_width/2) + h_shift) then
-						if (signed(addrb) = signed(grid_width/2) + h_shift) then
+					elsif (signed(addrb) >= signed(grid_width/2) + tr_h_shift) then		-- t_scale*grid_width/2
+						if (signed(addrb) = signed(grid_width/2) + tr_h_shift) then		-- t_scale*grid_width/2
 							pretrig <= datab(11 downto 0);
 						end if;
 						-- rising edge trigger
@@ -496,7 +480,7 @@ begin
 				end if;
 			--In the same frame, index to RAM using VGA starting address + hcount
 			else
-				ram_idx <= std_logic_vector(unsigned(read_addr)+unsigned(hcount)*t_scale);
+				ram_idx <= std_logic_vector(unsigned(read_addr)+unsigned(hcount)*t_scale);--unsigned(hcount)*t_scale;
 				if vga_loc=to_unsigned(0,2) then
 					dataa <= dataa0;
 					ram_led(1 downto 0) <= b"00";
@@ -676,7 +660,7 @@ begin
 			-- Draw grid
 			if vcount>=grid_top and vcount<=grid_bottom and hcount>=grid_left and hcount<=grid_right and 
 				(vcount=grid_top or vcount=scaled_trig or vcount=grid_bottom or --grid_top+grid_height/2
-				 hcount=grid_left or hcount=unsigned(signed(grid_left+grid_width/2)+h_shift) or hcount=grid_right) then
+				 hcount=grid_left or hcount=unsigned(signed(grid_left+grid_width/2)+tr_h_shift) or hcount=grid_right) then
 				grd_red<=b"10";
 				grd_grn<=b"10";
 				grd_blu<=b"10";
@@ -712,16 +696,6 @@ begin
 			end if;
 			-- Draw Trigger line
 			scaled_trig <= grid_top+grid_height-lvl/ratio;
-			-- if vcount>=grid_top and vcount<=grid_bottom and hcount>7*grid_width/8 and hcount<=grid_right and
-			-- 	vcount=scaled_trig then
-			-- 	trig_red<=b"01";
-			-- 	trig_grn<=b"01";
-			-- 	trig_blu<=b"11";
-			-- else
-			-- 	trig_red<=b"00";
-			-- 	trig_grn<=b"00";
-			-- 	trig_blu<=b"00";
-			-- end if;
         end if;
 
 		-- Make trace appear before grid and trigger line

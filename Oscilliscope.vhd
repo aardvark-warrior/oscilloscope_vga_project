@@ -92,15 +92,15 @@ architecture arch of Oscilliscope is
 	signal dataa: 	std_logic_vector(35 downto 0); 	-- original scope reading from RAM ...
 	signal addrb: 	std_logic_vector(9 downto 0);
 	signal datab: 	std_logic_vector(35 downto 0); 	-- from ADC ...
+	signal dataa0: 	std_logic_vector(35 downto 0); 	
+	signal dataa1: 	std_logic_vector(35 downto 0); 	
+	signal dataa2: 	std_logic_vector(35 downto 0); 	
+	signal dataa3: 	std_logic_vector(35 downto 0); 
 	signal adc_loc: 		unsigned(1 downto 0):=b"00";	-- track adc location in buffer chain
 	signal adc_loc_next: 	unsigned(1 downto 0);
 	signal vga_loc: 		unsigned(1 downto 0):=b"00";	-- track vga location in buffer chain
 	signal vga_loc_next: 	unsigned(1 downto 0);
-	signal prev_adc: 		unsigned(1 downto 0);
-	signal dataa0: 	std_logic_vector(35 downto 0); 	
-	signal dataa1: 	std_logic_vector(35 downto 0); 	
-	signal dataa2: 	std_logic_vector(35 downto 0); 	
-	signal dataa3: 	std_logic_vector(35 downto 0); 	
+	signal prev_adc: 		unsigned(1 downto 0);	
 	--VGA--
 	signal clkfb:    std_logic;
 	signal clkfx:    std_logic;
@@ -122,8 +122,8 @@ architecture arch of Oscilliscope is
 	signal screen_blu: 	std_logic_vector(1 downto 0):=(others=>'0');
 	--Vertical scaling/shifting--
 	signal ratio: 		unsigned(9 downto 0);						-- adc_range(4096)/grid_height; 
-	signal scaled_sig:	unsigned(23 downto 0);  -- signal after stretch/gain 
-	signal gn_state:	signed(7 downto 0):=(others=>'0');	-- TODO: find min number of bits needed
+	signal scaled_sig:	unsigned(23 downto 0); 						-- signal after gain 
+	signal gn_state:	signed(7 downto 0):=(others=>'0');	
 	signal gn_state_n:	signed(7 downto 0):=(others=>'0');
 	signal gain:		unsigned(11 downto 0):=to_unsigned(1,12);	
 	signal gain_next:	unsigned(11 downto 0):=to_unsigned(1,12);
@@ -228,8 +228,8 @@ begin
 		-- Basic idea:
 			-- Vertical stretch   -> multiply/divide dataa (before comparing to vcount)
 			-- Vertical shift 	  -> add/subtract dataa
-			-- Horizontal stretch -> mutiply/divide hcount (index into RAM)
-			-- Horizontal shift   -> add/subtract hcount
+			-- Horizontal stretch -> ??
+			-- Horizontal shift   -> on ADC-side, add h_shift to addrb before comparing
 	------------------------------------------------------------------
 	pio21 <= '1'; -- btns pio23,22
 	pio18 <= '1'; -- btns pio20,19
@@ -388,7 +388,6 @@ begin
 			adc_loc_next <= adc_loc+1;
 		end if;
 
-		-- * Write to incremented address of ram block at rising edge of rdy * --
 		if rising_edge(fclk) then -- fclk from cmt 52 MHz for ADC; rdy is synced with fclk
 			if rdy='1' then
 				-- Transition from State 3->1: Save last-used RAM, Move to next RAM, Reset addrb and detected flag
@@ -437,59 +436,6 @@ begin
 					-- State 1: Just read 240 + h_shift values (common in all 3 states, expect for when changing block RAMs)
 					addrb <= std_logic_vector(unsigned(addrb) + to_unsigned(1,10));
 				end if;
-
-				-- if (addrb=std_logic_vector(to_unsigned(samples-1,10))) or fin_write='1'  then
-				-- 	addrb<=b"00_0000_0000";
-				-- 	if fin_write='1' then
-				-- 		fin_write <='0';
-				-- 	end if;
-				-- 	-- set write enable
-				-- 	if adc_loc_next=to_unsigned(0,2) then
-				-- 		web <= (0=>rdy,others=>'0');
-				-- 		ram_led(3 downto 2) <= b"00";
-				-- 	elsif adc_loc_next=to_unsigned(1,2) then
-				-- 		web <= (1=>rdy,others=>'0');
-				-- 		ram_led(3 downto 2) <= b"01";
-				-- 	elsif adc_loc_next=to_unsigned(2,2) then
-				-- 		web <= (2=>rdy,others=>'0');
-				-- 		ram_led(3 downto 2) <= b"10";
-				-- 	else
-				-- 		web <= (3=>rdy,others=>'0');
-				-- 		ram_led(3 downto 2) <= b"11";
-				-- 	end if;
-				-- else
-					addrb<=std_logic_vector(unsigned(addrb) + to_unsigned(1,10));
-					if unsigned(addrb)=grid_width/2 and detected='0'  then
-						if detected='0' and unsigned(datab(11 downto 0))>=thresh then
-							detected <= '1';
-							prev_adc <= adc_loc;
-							tr_addr	<= addrb;
-						elsif detected='1' and fin_write='0' and
-							unsigned(addrb)=unsigned(tr_addr)+(grid_width/2-1) then
-							fin_write <='1';
-							adc_loc <= adc_loc_next;
-							detected <= '0';
-						end if;
-					end if;
-					-- set write enable
-					if adc_loc=to_unsigned(0,2) then
-						web <= (0=>rdy,others=>'0');
-						tr_addr0 <= tr_addr;
-						-- ram_led <= b"0001";
-					elsif adc_loc=to_unsigned(1,2) then
-						web <= (1=>rdy,others=>'0');
-						tr_addr1 <= tr_addr;
-						-- ram_led <= b"0010";
-					elsif adc_loc=to_unsigned(2,2) then
-						web <= (2=>rdy,others=>'0');
-						tr_addr2 <= tr_addr;
-						-- ram_led <= b"0100";
-					else
-						web <= (3=>rdy,others=>'0');
-						tr_addr3 <= tr_addr;
-						-- ram_led <= b"1000";
-					end if;
-				-- end if;
 			else
 				web <= b"0000";
 			end if;
@@ -499,21 +445,12 @@ begin
 	------------------------------------------------------------------
 	-- RAM from Buffer Chain logic
 	------------------------------------------------------------------
-	addr_a <= ram_idx(9 downto 0); --std_logic_vector(hcount);
-	-- ram_idx <= std_logic_vector(signed(hcount*t_scale) + h_shift) when 
-	-- 			ts_state>=to_signed(0,8) else
-	-- 			b"0000_0000_00"&std_logic_vector(signed(hcount/t_scale) + h_shift);
-	-- TODO: change horizontal scale to only compress at max sampling rate
-	--* Switch ram block to read from after each frame * --
+	addr_a <= ram_idx(9 downto 0); 
 	process(clkfx) -- clkfx from cmt2 25.2 MHz for VGA
 	begin
-		-- Select ram most-recently used by adc as next vga_loc
-		-- if vga_loc=adc_loc-1 then
-		-- 	vga_loc_next <= vga_loc-1;
-		-- else
-		-- 	vga_loc_next <= adc_loc-1;
-		-- end if;
+		--Set next vga_loc to last RAM used by ADC
 		vga_loc_next <= prev_adc;
+		--Set addr to start reading at for next RAM
 		if prev_adc=b"00" then
 			read_addr_n <= std_logic_vector(unsigned(tr_addr0)-grid_width/2);
 		elsif prev_adc=b"01" then
@@ -525,9 +462,9 @@ begin
 		end if;
 
 		if rising_edge(clkfx) then
+			--On new frame, select new RAM-block and set the starting address for VGA read
 			if frame='1' then
-				ram_idx <= read_addr_n;
-				vga_loc <= vga_loc_next;	-- Only update vga_loc on every new frame
+				vga_loc <= vga_loc_next;	
 				read_addr <= read_addr_n;
 				if vga_loc_next=to_unsigned(0,2) then
 					dataa <= dataa0;
@@ -538,6 +475,7 @@ begin
 				else
 					dataa <= dataa3;
 				end if;
+			--In the same frame, index to RAM using VGA starting address + hcount
 			else
 				ram_idx <= std_logic_vector(unsigned(read_addr)+unsigned(hcount));
 				if vga_loc=to_unsigned(0,2) then
@@ -561,7 +499,7 @@ begin
 	-- Generate output signal: square wave
 	------------------------------------------------------------------
 	pio31 <= out31;
-	-- * Test_sig_1: square wave alternate every 1040-1 counts * --
+	--Test signal 1: square wave alternate every 1040-1 counts
 	process(fclk) 
 	begin
 		if rising_edge(fclk) then
@@ -709,7 +647,7 @@ begin
 	end process;
 	
     ------------------------------------------------------------------
-	-- VGA Output: Grid, Trace
+	-- Output Trace, Trigger, Grid
 	------------------------------------------------------------------
 	ratio <= 4096/grid_height;
 	scaled_trig <= grid_top+grid_height-thresh/ratio;
@@ -754,7 +692,7 @@ begin
 				line_blu<=b"00";
 			end if;
 			-- Draw Trigger line
-			if vcount>=grid_top and vcount<=grid_bottom and hcount>=grid_left and hcount<=grid_right and
+			if vcount>=grid_top and vcount<=grid_bottom and hcount>=grid_left and hcount<=grid_width/8 and
 				vcount=scaled_trig then
 				trig_red<=b"01";
 				trig_grn<=b"01";
@@ -766,21 +704,22 @@ begin
 			end if;
         end if;
 
-		-- Make trace appear before grid
-		if (trig_red=b"00" and trig_grn=b"00" and trig_blu=b"00") then
-			if (line_red=b"00" and line_grn=b"00" and line_blu=b"00") then
+		-- Make trace appear before grid and trigger line
+		if (line_red=b"00" and line_grn=b"00" and line_blu=b"00") then
+			if (trig_red=b"00" and trig_grn=b"00" and trig_blu=b"00") then
 				screen_red <= grd_red;
 				screen_grn <= grd_grn;
 				screen_blu <= grd_blu;
 			else
-				screen_red <= line_red;
-				screen_grn <= line_grn;
-				screen_blu <= line_blu;
+				screen_red <= trig_red;
+				screen_grn <= trig_grn;
+				screen_blu <= trig_blu;
 			end if;
 		else
-			screen_red <= trig_red;
-			screen_grn <= trig_grn;
-			screen_blu <= trig_blu;
+			
+			screen_red <= line_red;
+			screen_grn <= line_grn;
+			screen_blu <= line_blu;
 		end if;
     end process;
 

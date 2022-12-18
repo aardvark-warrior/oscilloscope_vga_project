@@ -8,6 +8,9 @@ entity Oscilliscope is
 	port(
 		btn: 	in  std_logic_vector(1 downto 0);
 		led:	out std_logic_vector(3 downto 0);
+		led0_r	out std_logic;
+		led0_b	out std_logic;
+		led0_g 	out std_logic;
 		--Oscilliscope
 		clk:	in  std_logic;
 		vaux5_n:in  std_logic;
@@ -34,10 +37,7 @@ entity Oscilliscope is
 		pio9:	out std_logic;
 		pio8:	in	std_logic;
 		pio7:	in	std_logic;
-		pio6:	out std_logic;
-		pio5:	in  std_logic;
-		pio4:	in  std_logic;
-		pio3:	out	std_logic
+		pio6:	out std_logic
 	);
 end Oscilliscope;
 
@@ -132,10 +132,10 @@ architecture arch of Oscilliscope is
 	signal grid_right: 	unsigned(9 downto 0):=to_unsigned(640,10); 
 	signal grid_width: 	unsigned(9 downto 0):=to_unsigned(640,10);
 	--Button shift registers
-	signal ud_btn_sh: 	std_logic_vector(7 downto 0):=(others=>'0'); 	-- upper 4 bits (shift up), 		lower 4 bits (shift down)
-	signal vs_btn_sh:	std_logic_vector(7 downto 0):=(others=>'0'); 	-- upper 4 bits (voltage scale up),lower 4 bits (scale down)
 	signal toggle:		std_logic:='1'; 								-- 1 -> adjust trigger; 0 -> adjust signal
-	signal tog_btn_sh	:std_logic_vector(7 downto 0):=(others=>'0');
+	signal ud_btn_sh: 	std_logic_vector(7 downto 0):=(others=>'0'); 	
+	signal vs_btn_sh:	std_logic_vector(7 downto 0):=(others=>'0'); 	
+	signal tog_btn_sh:	std_logic_vector(7 downto 0):=(others=>'0');
 	signal tr_ts_btn_sh:std_logic_vector(7 downto 0):=(others=>'0');
 	signal lr_btn_sh:	std_logic_vector(7 downto 0):=(others=>'0');		
 	signal ram_led:   	std_logic_vector(3 downto 0);					-- debugging LEDs
@@ -250,7 +250,6 @@ begin
 	pio18 <= '1'; -- btns pio20,19
 	pio9  <= '1'; -- btns pio17,16
 	pio6  <= '1'; -- btns pio8,7
-	-- pio3  <= '1'; -- btns pio5,4
 	process(clkfx)
 	begin
 		if rising_edge(clkfx) then
@@ -483,7 +482,7 @@ begin
 	------------------------------------------------------------------
 	-- RAM read from Buffer Chain 
 	------------------------------------------------------------------
-	addr_a <= ram_idx(9 downto 0); 
+	addr_a <= std_logic_vector(signed(ram_idx(9 downto 0))+hshift); 
 	process(clkfx,prev_adc,tr_addr0,tr_addr1,tr_addr2,tr_addr3) -- clkfx from cmt2 25.2 MHz for VGA
 	begin
 		--Set next vga_loc to last RAM used by ADC
@@ -515,7 +514,7 @@ begin
 				end if;
 			--In the same frame, index to RAM using VGA starting address + hcount
 			else
-				ram_idx <= std_logic_vector(signed(unsigned(read_addr)+hcount*t_scale)+hshift);
+				ram_idx <= std_logic_vector(signed(unsigned(read_addr)+hcount*t_scale));
 				if vga_loc=to_unsigned(0,2) then
 					dataa <= dataa0;
 					ram_led(1 downto 0) <= b"00";

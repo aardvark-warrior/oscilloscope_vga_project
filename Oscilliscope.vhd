@@ -477,7 +477,7 @@ begin
 	end process;
 
 	------------------------------------------------------------------
-	-- RAM read from Buffer Chain 
+	-- VGA read from Buffer Chain 
 	------------------------------------------------------------------
 	addr_a <= std_logic_vector(signed(ram_idx(9 downto 0))+hshift); 
 	process(clkfx,prev_adc,tr_addr0,tr_addr1,tr_addr2,tr_addr3) -- clkfx from cmt2 25.2 MHz for VGA
@@ -725,7 +725,7 @@ begin
 				line_grn<=b"00";
 				line_blu<=b"00";
 			end if;
-			-- Draw Trigger line
+			-- Scale Trigger line
 			scaled_trig <= grid_top+grid_height-lvl/ratio;
         end if;
 

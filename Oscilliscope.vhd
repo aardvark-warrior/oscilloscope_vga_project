@@ -161,9 +161,9 @@ architecture arch of Oscilliscope is
 	signal tr_addr3:		std_logic_vector(9 downto 0);
 	signal read_addr:		std_logic_vector(9 downto 0);
 	signal read_addr_n:		std_logic_vector(9 downto 0);
-	signal thresh:			unsigned(11 downto 0):=to_unsigned(3900,12);
-	signal thresh_n:		unsigned(11 downto 0):=to_unsigned(3900,12);
-	constant thresh_inc:	unsigned(11 downto 0):=to_unsigned(48,12);
+	signal lvl:				unsigned(11 downto 0):=to_unsigned(3900,12);
+	signal lvl_n:			unsigned(11 downto 0):=to_unsigned(3900,12);
+	constant lvl_inc:		unsigned(11 downto 0):=to_unsigned(48,12);
 	signal scaled_trig:		unsigned(11 downto 0);	-- scaled_tr <= grid_height - thresh/ratio;
 
 begin
@@ -253,15 +253,15 @@ begin
 			trig_btn_sh(1)<=trig_btn_sh(2);
 			trig_btn_sh(0)<=trig_btn_sh(1);
 			if trig_btn_sh(7)='0' and trig_btn_sh(6)='1' and
-				thresh<=to_unsigned(4095,12)-thresh_inc then
-				thresh_n <= thresh + thresh_inc;
+				lvl<=to_unsigned(4095,12)-lvl_inc then
+				lvl_n <= lvl + lvl_inc;
 			end if;
 			if trig_btn_sh(0)='0' and trig_btn_sh(1)='1' and
-				thresh>=to_unsigned(0,12)+thresh_inc then
-				thresh_n <= thresh - thresh_inc;
+				lvl>=to_unsigned(0,12)+lvl_inc then
+				lvl_n <= lvl - lvl_inc;
 			end if;
 			if frame='1' then
-				thresh <= thresh_n;
+				lvl <= lvl_n;
 			end if;
 
 			--Time scale buttons--
@@ -396,26 +396,68 @@ begin
 		-- * Write to incremented address of ram block at rising edge of rdy * --
 		if rising_edge(fclk) then -- fclk from cmt 52 MHz for ADC; rdy is synced with fclk
 			if rdy='1' then
-				if (addrb=std_logic_vector(to_unsigned(samples-1,10))) or fin_write='1'  then
-					addrb<=b"00_0000_0000";
-					if fin_write='1' then
-						fin_write <='0';
-					end if;
-					-- set write enable
-					if adc_loc_next=to_unsigned(0,2) then
+				if (addrb = std_logic_vector(tr_addr + grid_width/2 - 1))  and detected = '1' then
+					adc_loc <= adc_loc_next;
+					addrb <= b"00_0000_0000";
+					detected <= '0';
+					if adc_loc_next = b"00" then
 						web <= (0=>rdy,others=>'0');
-						ram_led(3 downto 2) <= b"00";
-					elsif adc_loc_next=to_unsigned(1,2) then
+					elsif adc_loc_next = b"01" then
 						web <= (1=>rdy,others=>'0');
-						ram_led(3 downto 2) <= b"01";
-					elsif adc_loc_next=to_unsigned(2,2) then
+					elsif adc_loc_next = b"10" then
 						web <= (2=>rdy,others=>'0');
-						ram_led(3 downto 2) <= b"10";
 					else
 						web <= (3=>rdy,others=>'0');
-						ram_led(3 downto 2) <= b"11";
 					end if;
 				else
+					addrb <= std_logic_vector(unsigned(addrb) + to_unsigned(1,10));
+					if adc_loc = b"00" then
+						web <= (0=>rdy,others=>'0');
+					elsif adc_loc = b"01" then
+						web <= (1=>rdy,others=>'0');
+					elsif adc_loc = b"10" then
+						web <= (2=>rdy,others=>'0');
+					else
+						web <= (3=>rdy,others=>'0');
+					end if;
+					if (detected = '1') then
+						if adc_loc = b"00" then
+							tr_addr0 <= tr_addr;
+						elsif adc_loc = b"01" then
+							tr_addr1 <= tr_addr;
+						elsif adc_loc = b"10" then
+							tr_addr2 <= tr_addr;
+						else
+							tr_addr3 <= tr_addr;
+						end if;
+					elsif (unsigned(addrb) >= grid_width/2) then
+						if unsigned(datab(11 downto 0) >= lvl) then
+							detected <= '1';
+							tr_addr <= addrb;
+						end if;
+					end if;
+				end if;
+
+				-- if (addrb=std_logic_vector(to_unsigned(samples-1,10))) or fin_write='1'  then
+				-- 	addrb<=b"00_0000_0000";
+				-- 	if fin_write='1' then
+				-- 		fin_write <='0';
+				-- 	end if;
+				-- 	-- set write enable
+				-- 	if adc_loc_next=to_unsigned(0,2) then
+				-- 		web <= (0=>rdy,others=>'0');
+				-- 		ram_led(3 downto 2) <= b"00";
+				-- 	elsif adc_loc_next=to_unsigned(1,2) then
+				-- 		web <= (1=>rdy,others=>'0');
+				-- 		ram_led(3 downto 2) <= b"01";
+				-- 	elsif adc_loc_next=to_unsigned(2,2) then
+				-- 		web <= (2=>rdy,others=>'0');
+				-- 		ram_led(3 downto 2) <= b"10";
+				-- 	else
+				-- 		web <= (3=>rdy,others=>'0');
+				-- 		ram_led(3 downto 2) <= b"11";
+				-- 	end if;
+				-- else
 					addrb<=std_logic_vector(unsigned(addrb) + to_unsigned(1,10));
 					if unsigned(addrb)=grid_width/2 and detected='0'  then
 						if detected='0' and unsigned(datab(11 downto 0))>=thresh then
@@ -447,7 +489,7 @@ begin
 						tr_addr3 <= tr_addr;
 						-- ram_led <= b"1000";
 					end if;
-				end if;
+				-- end if;
 			else
 				web <= b"0000";
 			end if;

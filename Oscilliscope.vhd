@@ -157,6 +157,7 @@ architecture arch of Oscilliscope is
 	--Trigger
 	signal detected:	std_logic:='0';
 	signal init:		std_logic:='1';
+	signal pretrig:		std_logic_vector(11 downto 0);
 	signal tr_addr:		std_logic_vector(9 downto 0);	-- ADC side of trigger takes care of h_shift
 	signal tr_addr0:	std_logic_vector(9 downto 0);	-- when read by VGA, tr_addrX already includes shift
 	signal tr_addr1:	std_logic_vector(9 downto 0);
@@ -436,7 +437,12 @@ begin
 						end if;
 					-- State 2: Waiting for trigger (after reading 240 + h_shift initial values)
 					elsif (signed(addrb) >= signed(grid_width/2) + h_shift) then
-						if (unsigned(datab(11 downto 0)) >= lvl) then
+						if (signed(addrb) = signed(grid_width/2) + h_shift) then
+							pretrig <= datab(11 downto 0);
+						end if;
+						-- rising edge trigger
+						if (unsigned(datab(11 downto 0)) >= lvl) and 
+							(unsigned(pretrig) < unsigned(datab(11 downto 0))) then	
 							init <= '0';
 							detected <= '1';
 							tr_addr <= addrb;

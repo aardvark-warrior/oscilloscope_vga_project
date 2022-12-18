@@ -275,7 +275,7 @@ begin
 			if tr_ts_btn_sh(7)='0' and tr_ts_btn_sh(6)='1' then
 				if toggle='1' and lvl<=to_unsigned(4095,12)-lvl_step then
 					lvl_n <= lvl + lvl_step;
-				elsif toggle='0' then
+				elsif toggle='0' and t_scale < 5 then
 					t_scale_n <= t_scale + 1;
 				end if;
 			end if;
@@ -507,7 +507,7 @@ begin
 				end if;
 			--In the same frame, index to RAM using VGA starting address + hcount
 			else
-				ram_idx <= std_logic_vector(signed(unsigned(read_addr)+hcount*t_scale)+hshift);--unsigned(hcount)*t_scale;
+				ram_idx <= std_logic_vector(signed(unsigned(read_addr)+hcount*t_scale)+hshift);
 				if vga_loc=to_unsigned(0,2) then
 					dataa <= dataa0;
 					ram_led(1 downto 0) <= b"00";

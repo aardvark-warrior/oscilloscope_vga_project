@@ -442,7 +442,7 @@ begin
 						end if;
 						-- rising edge trigger
 						if (unsigned(datab(11 downto 0)) >= lvl) and 
-							(unsigned(pretrig) < unsigned(datab(11 downto 0))) then	
+							(unsigned(datab(11 downto 0)) > unsigned(pretrig)) then	
 							init <= '0';
 							detected <= '1';
 							tr_addr <= addrb;

@@ -161,8 +161,8 @@ architecture arch of Oscilliscope is
 	signal tr_addr3:		std_logic_vector(9 downto 0);
 	signal read_addr:		std_logic_vector(9 downto 0);
 	signal read_addr_n:		std_logic_vector(9 downto 0);
-	signal thresh:			unsigned(11 downto 0):=to_unsigned(3500,12);
-	signal thresh_n:		unsigned(11 downto 0):=to_unsigned(3500,12);
+	signal thresh:			unsigned(11 downto 0):=to_unsigned(3900,12);
+	signal thresh_n:		unsigned(11 downto 0):=to_unsigned(3900,12);
 	constant thresh_inc:	unsigned(11 downto 0):=to_unsigned(48,12);
 	signal scaled_trig:		unsigned(11 downto 0);	-- scaled_tr <= grid_height - thresh/ratio;
 
@@ -396,19 +396,6 @@ begin
 		-- * Write to incremented address of ram block at rising edge of rdy * --
 		if rising_edge(fclk) then -- fclk from cmt 52 MHz for ADC; rdy is synced with fclk
 			if rdy='1' then
-				if unsigned(addrb)>=grid_width/2 and detected='0'  then
-					if detected='0' and unsigned(datab(11 downto 0))>=thresh then
-						detected <= '1';
-						prev_adc <= adc_loc;
-						tr_addr	<= addrb;
-					elsif detected='1' and fin_write='0' and
-						unsigned(addrb)=unsigned(tr_addr)+(grid_width/2-1) then
-						fin_write <='1';
-						adc_loc <= adc_loc_next;
-						detected <= '0';
-					end if;
-				end if;
-
 				if (addrb=std_logic_vector(to_unsigned(samples-1,10))) or fin_write='1'  then
 					addrb<=b"00_0000_0000";
 					if fin_write='1' then
@@ -430,6 +417,18 @@ begin
 					end if;
 				else
 					addrb<=std_logic_vector(unsigned(addrb) + to_unsigned(1,10));
+					if unsigned(addrb)=grid_width/2 and detected='0'  then
+						if detected='0' and unsigned(datab(11 downto 0))>=thresh then
+							detected <= '1';
+							prev_adc <= adc_loc;
+							tr_addr	<= addrb;
+						elsif detected='1' and fin_write='0' and
+							unsigned(addrb)=unsigned(tr_addr)+(grid_width/2-1) then
+							fin_write <='1';
+							adc_loc <= adc_loc_next;
+							detected <= '0';
+						end if;
+					end if;
 					-- set write enable
 					if adc_loc=to_unsigned(0,2) then
 						web <= (0=>rdy,others=>'0');

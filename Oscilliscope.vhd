@@ -117,8 +117,8 @@ architecture arch of Oscilliscope is
 	signal v_shift_n	:signed(11 downto 0):=to_signed(0,12);
 	--Horizontal scaling/shifting
 	signal ram_idx:		std_logic_vector(19 downto 0);
-	signal ts_state:    signed(7 downto 0):=(others=>'0');
-	signal ts_state_n:  signed(7 downto 0):=(others=>'0');
+	-- signal ts_state:    signed(7 downto 0):=(others=>'0');
+	-- signal ts_state_n:  signed(7 downto 0):=(others=>'0');
 	signal t_scale:		unsigned(9 downto 0):=to_unsigned(1,10);
 	signal t_scale_n:   unsigned(9 downto 0):=to_unsigned(1,10);
 	signal h_shift:		signed(9 downto 0):=to_signed(0,10);
@@ -272,31 +272,35 @@ begin
 			ts_btn_sh(1)<=ts_btn_sh(2);
 			ts_btn_sh(0)<=ts_btn_sh(1); -- use bits 0,1 for edge detection
 			if ts_btn_sh(7)='0' and ts_btn_sh(6)='1' then
-				ts_state_n <= ts_state+1;
-				if ts_state<to_signed(0,8) then
-					if ts_state_n=to_signed(0,8) then
-						t_scale_n <= to_unsigned(1,10);
-					else
-						t_scale_n <= t_scale-1;
-					end if;
-				else
-					t_scale_n <= t_scale + 1;
-				end if;
+				t_scale_n <= t_scale + 1;
+				-- ts_state_n <= ts_state+1;
+				-- if ts_state<to_signed(0,8) then
+				-- 	if ts_state_n=to_signed(0,8) then
+				-- 		t_scale_n <= to_unsigned(1,10);
+				-- 	else
+				-- 		t_scale_n <= t_scale-1;
+				-- 	end if;
+				-- else
+				-- 	t_scale_n <= t_scale + 1;
+				-- end if;
 			end if;
 			if ts_btn_sh(0)='0' and ts_btn_sh(1)='1' then
-				ts_state_n <= ts_state-1;
-				if ts_state>to_signed(0,8) then
-					if ts_state_n=to_signed(0,8) then
-						t_scale_n <= to_unsigned(1,10);
-					else
-						t_scale_n <= t_scale-1;
-					end if;
-				else
-					t_scale_n <= t_scale + 1;
+				if t_scale > 1 then
+					t_scale_n <= t_scale - 1;
 				end if;
+				-- ts_state_n <= ts_state-1;
+				-- if ts_state>to_signed(0,8) then
+				-- 	if ts_state_n=to_signed(0,8) then
+				-- 		t_scale_n <= to_unsigned(1,10);
+				-- 	else
+				-- 		t_scale_n <= t_scale-1;
+				-- 	end if;
+				-- else
+				-- 	t_scale_n <= t_scale + 1;
+				-- end if;
 			end if;
 			if frame='1' then
-				ts_state <= ts_state_n;
+				-- ts_state <= ts_state_n;
 				t_scale <= t_scale_n;
 			end if;
 

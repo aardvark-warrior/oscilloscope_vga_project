@@ -154,8 +154,8 @@ architecture arch of Oscilliscope is
 	--Trigger
 	signal detected:		std_logic:='0';
 	signal fin_write:		std_logic:='0';
-	signal tr_addr:			std_logic_vector(9 downto 0);
-	signal tr_addr0:		std_logic_vector(9 downto 0);
+	signal tr_addr:			std_logic_vector(9 downto 0);	-- ADC side of trigger takes care of h_shift
+	signal tr_addr0:		std_logic_vector(9 downto 0);	-- when read by VGA, tr_addrX already includes shift
 	signal tr_addr1:		std_logic_vector(9 downto 0);
 	signal tr_addr2:		std_logic_vector(9 downto 0);
 	signal tr_addr3:		std_logic_vector(9 downto 0);
@@ -223,13 +223,8 @@ begin
 
 	------------------------------------------------------------------
 	-- Button Metastability Logic
-		-- TODO: fix vertical gain flat-line
-		-- TODO: horizontal shift wraps around, but discontinuous bc sample=960 < max(ram addr)=1024
-		--		 data wraparound happens sooner than address wraparound
-		-- TODO: add triggering to keep reading still? screen must
-		--		 fit a full period for the image to be still
 		-- TODO: add debouncing
-		-- TODO: improve h_stretch by stretching about centre of screen (not y-axis)
+		-- TODO: incorporate time compress to ADC-side
 		-- Basic idea:
 			-- Vertical stretch   -> multiply/divide dataa (before comparing to vcount)
 			-- Vertical shift 	  -> add/subtract dataa
@@ -396,7 +391,9 @@ begin
 		-- * Write to incremented address of ram block at rising edge of rdy * --
 		if rising_edge(fclk) then -- fclk from cmt 52 MHz for ADC; rdy is synced with fclk
 			if rdy='1' then
-				if (addrb = std_logic_vector(tr_addr + grid_width/2 - 1))  and detected = '1' then
+				-- Transition from State 3->1: Save last-used RAM, Move to next RAM, Reset addrb and detected flag
+				if (addrb = std_logic_vector(signed(unsigned(tr_addr) + grid_width/2 - 1) + h_shift))  and detected = '1' then
+					prev_adc <= adc_loc;
 					adc_loc <= adc_loc_next;
 					addrb <= b"00_0000_0000";
 					detected <= '0';
@@ -410,7 +407,6 @@ begin
 						web <= (3=>rdy,others=>'0');
 					end if;
 				else
-					addrb <= std_logic_vector(unsigned(addrb) + to_unsigned(1,10));
 					if adc_loc = b"00" then
 						web <= (0=>rdy,others=>'0');
 					elsif adc_loc = b"01" then
@@ -420,6 +416,7 @@ begin
 					else
 						web <= (3=>rdy,others=>'0');
 					end if;
+					-- State 3: Read 240 + h_shift values after trigger detected
 					if (detected = '1') then
 						if adc_loc = b"00" then
 							tr_addr0 <= tr_addr;
@@ -430,12 +427,15 @@ begin
 						else
 							tr_addr3 <= tr_addr;
 						end if;
-					elsif (unsigned(addrb) >= grid_width/2) then
-						if unsigned(datab(11 downto 0) >= lvl) then
+					-- State 2: Waiting for trigger (after reading 240 + h_shift initial values)
+					elsif (signed(addrb) >= signed(grid_width/2) + h_shift) then
+						if (unsigned(datab(11 downto 0)) >= lvl) then
 							detected <= '1';
 							tr_addr <= addrb;
 						end if;
 					end if;
+					-- State 1: Just read 240 + h_shift values (common in all 3 states, expect for when changing block RAMs)
+					addrb <= std_logic_vector(unsigned(addrb) + to_unsigned(1,10));
 				end if;
 
 				-- if (addrb=std_logic_vector(to_unsigned(samples-1,10))) or fin_write='1'  then
@@ -525,12 +525,8 @@ begin
 		end if;
 
 		if rising_edge(clkfx) then
-			if unsigned(ram_idx)>=unsigned(read_addr)+grid_width-1 then
-				ram_idx <= read_addr;
-			else
-				ram_idx <= std_logic_vector(unsigned(read_addr)+unsigned(hcount));
-			end if;
 			if frame='1' then
+				ram_idx <= read_addr_n;
 				vga_loc <= vga_loc_next;	-- Only update vga_loc on every new frame
 				read_addr <= read_addr_n;
 				if vga_loc_next=to_unsigned(0,2) then
@@ -543,6 +539,7 @@ begin
 					dataa <= dataa3;
 				end if;
 			else
+				ram_idx <= std_logic_vector(unsigned(read_addr)+unsigned(hcount));
 				if vga_loc=to_unsigned(0,2) then
 					dataa <= dataa0;
 					ram_led(1 downto 0) <= b"00";

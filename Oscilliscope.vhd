@@ -116,7 +116,7 @@ architecture arch of Oscilliscope is
 	signal v_shift:		signed(11 downto 0):=to_signed(0,12);
 	signal v_shift_n	:signed(11 downto 0):=to_signed(0,12);
 	--Horizontal scaling/shifting
-	signal ram_idx:		std_logic_vector(9 downto 0);
+	signal ram_idx:		std_logic_vector(19 downto 0);
 	signal ts_state:    signed(7 downto 0):=(others=>'0');
 	signal ts_state_n:  signed(7 downto 0):=(others=>'0');
 	signal t_scale:		unsigned(9 downto 0):=to_unsigned(1,10);
@@ -492,7 +492,7 @@ begin
 				end if;
 			--In the same frame, index to RAM using VGA starting address + hcount
 			else
-				ram_idx <= std_logic_vector(unsigned(read_addr)+unsigned(hcount));
+				ram_idx <= std_logic_vector(unsigned(read_addr)+unsigned(hcount)*t_scale);
 				if vga_loc=to_unsigned(0,2) then
 					dataa <= dataa0;
 					ram_led(1 downto 0) <= b"00";

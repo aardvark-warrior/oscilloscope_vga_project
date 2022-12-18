@@ -97,6 +97,7 @@ architecture arch of Oscilliscope is
 	signal frame:    	std_logic;
 	signal hcount:   	unsigned(9 downto 0);
 	signal vcount:   	unsigned(9 downto 0);
+	signal ram_idx:		std_logic_vector(19 downto 0);
 	signal grd_red:  	std_logic_vector(1 downto 0):=(others=>'0');  -- grid
 	signal grd_grn:  	std_logic_vector(1 downto 0):=(others=>'0');
 	signal grd_blu:  	std_logic_vector(1 downto 0):=(others=>'0');
@@ -109,24 +110,21 @@ architecture arch of Oscilliscope is
 	signal screen_red: 	std_logic_vector(1 downto 0):=(others=>'0');  -- screen <= reading over trigger over grid
 	signal screen_grn: 	std_logic_vector(1 downto 0):=(others=>'0');
 	signal screen_blu: 	std_logic_vector(1 downto 0):=(others=>'0');
-	--Vertical scaling/shifting
+	--Signal Vertical Shift and Amp Scale
 	signal ratio: 		unsigned(9 downto 0);						-- adc_range(4096)/grid_height; 
 	signal scaled_sig:	unsigned(23 downto 0); 						-- signal after gain 
 	signal gn_state:	signed(7 downto 0):=(others=>'0');	
 	signal gn_state_n:	signed(7 downto 0):=(others=>'0');
+	signal vshift:		signed(11 downto 0):=to_signed(0,12);
+	signal vshift_n:	signed(11 downto 0):=to_signed(0,12);
 	signal gain:		unsigned(11 downto 0):=to_unsigned(1,12);	
 	signal gain_n:		unsigned(11 downto 0):=to_unsigned(1,12);
-	signal v_shift:		signed(11 downto 0):=to_signed(0,12);
-	signal v_shift_n	:signed(11 downto 0):=to_signed(0,12);
-	--Horizontal scaling/shifting
-	signal ram_idx:		std_logic_vector(19 downto 0);
-	-- signal ts_state:    signed(7 downto 0):=(others=>'0');
-	-- signal ts_state_n:  signed(7 downto 0):=(others=>'0');
+	--Signal Horizontal Shift and Time Scale
+		-- signal hshift:		signed(11 downto 0):=to_signed(0,12);
+		-- signal hshift_n:	signed(11 downto 0):=to_signed(0,12);
 	signal t_scale:		unsigned(9 downto 0):=to_unsigned(1,10);
 	signal t_scale_n:   unsigned(9 downto 0):=to_unsigned(1,10);
-	signal tr_h_shift:	signed(9 downto 0):=to_signed(0,10);
-	signal tr_h_shift_n:signed(9 downto 0):=to_signed(0,10);
-	--Dimensions of scope grid
+	--Scope grid dimensions
 	signal grid_top: 	unsigned(9 downto 0):=to_unsigned(0,10);
 	signal grid_left: 	unsigned(9 downto 0):=to_unsigned(0,10);
 	signal grid_bottom: unsigned(9 downto 0):=to_unsigned(256,10); 
@@ -135,7 +133,7 @@ architecture arch of Oscilliscope is
 	signal grid_width: 	unsigned(9 downto 0):=to_unsigned(640,10);
 	--Button shift registers
 	signal ud_btn_sh: 	std_logic_vector(7 downto 0):=(others=>'0'); 	-- upper 4 bits (shift up), 		lower 4 bits (shift down)
-	--TODO: lr_btn_sh:	std_logic_vector(7 downto 0):=(others=>'0');
+		--TODO: lr_btn_sh:	std_logic_vector(7 downto 0):=(others=>'0');
 	signal vs_btn_sh:	std_logic_vector(7 downto 0):=(others=>'0'); 	-- upper 4 bits (voltage scale up),lower 4 bits (scale down)
 	signal ts_btn_sh:   std_logic_vector(7 downto 0):=(others=>'0'); 	-- upper 4 bits (time stretch), 	lower 4 bits (time compress)
 	signal tr_ud_btn_sh:std_logic_vector(7 downto 0):=(others=>'0');	-- upper 4 bits (trigger up), 		lower 4 bits (trigger down)
@@ -159,6 +157,7 @@ architecture arch of Oscilliscope is
 	signal b8_cnt:		unsigned(20 downto 0):=to_unsigned(0,21);
 	signal b7_cnt:		unsigned(20 downto 0):=to_unsigned(0,21);
 	--Trigger
+	constant lvl_step:	unsigned(11 downto 0):=to_unsigned(128,12);
 	signal detected:	std_logic:='0';
 	signal init:		std_logic:='1';
 	signal pretrig:		std_logic_vector(11 downto 0);
@@ -172,8 +171,8 @@ architecture arch of Oscilliscope is
 	signal scaled_trig:	unsigned(11 downto 0);			-- scaled_tr <= grid_height - thresh/ratio;
 	signal lvl:			unsigned(11 downto 0):=to_unsigned(3900,12);
 	signal lvl_n:		unsigned(11 downto 0):=to_unsigned(3900,12);
-	constant lvl_step:	unsigned(11 downto 0):=to_unsigned(128,12);
-
+	signal tr_h_shift:	signed(9 downto 0):=to_signed(0,10);
+	signal tr_h_shift_n:signed(9 downto 0):=to_signed(0,10);
 
 begin
     --BEGIN WITH OSCILLISCOPE MEASUREMENT
@@ -242,11 +241,11 @@ begin
 	pio18 <= '1'; -- btns pio20,19
 	pio9  <= '1'; -- btns pio17,16
 	pio6  <= '1'; -- btns pio8,7
-	pio3  <= '1'; -- btns pio5,4
+	-- pio3  <= '1'; -- btns pio5,4
 	process(clkfx)
 	begin
 		if rising_edge(clkfx) then
-			--Trigger toggling--
+			--Trigger U/D shift--
 			tr_ud_btn_sh(4)<=pio8;
 			tr_ud_btn_sh(5)<=tr_ud_btn_sh(4);
 			tr_ud_btn_sh(6)<=tr_ud_btn_sh(5);
@@ -267,7 +266,26 @@ begin
 				lvl <= lvl_n;
 			end if;
 
-			--Time scale buttons--
+			--Trigger L/R shift buttons--
+			tr_lr_btn_sh(4)<=pio20; -- upper 4 bits for LEFT shift button
+			tr_lr_btn_sh(5)<=tr_lr_btn_sh(4);
+			tr_lr_btn_sh(6)<=tr_lr_btn_sh(5);
+			tr_lr_btn_sh(7)<=tr_lr_btn_sh(6); -- use bits 7,6 for edge detection
+			tr_lr_btn_sh(3)<=pio19; -- lower 4 bits for RIGHT shift button
+			tr_lr_btn_sh(2)<=tr_lr_btn_sh(3);
+			tr_lr_btn_sh(1)<=tr_lr_btn_sh(2);
+			tr_lr_btn_sh(0)<=tr_lr_btn_sh(1); -- use bits 0,1 for edge detection
+			if tr_lr_btn_sh(7)='0' and tr_lr_btn_sh(6)='1' then
+				tr_h_shift_n<=tr_h_shift+to_signed(-5,10);
+			end if;
+			if tr_lr_btn_sh(0)='0' and tr_lr_btn_sh(1)='1' then
+				tr_h_shift_n<=tr_h_shift+to_signed(5,10);
+			end if;
+			if frame='1' then
+				tr_h_shift<=tr_h_shift_n;
+			end if;
+
+			--Signal Time scale buttons--
 			ts_btn_sh(4)<=pio17; -- upper 4 bits for stretch time button
 			ts_btn_sh(5)<=ts_btn_sh(4);
 			ts_btn_sh(6)<=ts_btn_sh(5);
@@ -289,24 +307,24 @@ begin
 				t_scale <= t_scale_n;
 			end if;
 
-			--Left/Right shift buttons--
-			tr_lr_btn_sh(4)<=pio20; -- upper 4 bits for LEFT shift button
-			tr_lr_btn_sh(5)<=tr_lr_btn_sh(4);
-			tr_lr_btn_sh(6)<=tr_lr_btn_sh(5);
-			tr_lr_btn_sh(7)<=tr_lr_btn_sh(6); -- use bits 7,6 for edge detection
-			tr_lr_btn_sh(3)<=pio19; -- lower 4 bits for RIGHT shift button
-			tr_lr_btn_sh(2)<=tr_lr_btn_sh(3);
-			tr_lr_btn_sh(1)<=tr_lr_btn_sh(2);
-			tr_lr_btn_sh(0)<=tr_lr_btn_sh(1); -- use bits 0,1 for edge detection
-			if tr_lr_btn_sh(7)='0' and tr_lr_btn_sh(6)='1' then
-				tr_h_shift_n<=tr_h_shift+to_signed(-5,10);
-			end if;
-			if tr_lr_btn_sh(0)='0' and tr_lr_btn_sh(1)='1' then
-				tr_h_shift_n<=tr_h_shift+to_signed(5,10);
-			end if;
-			if frame='1' then
-				tr_h_shift<=tr_h_shift_n;
-			end if;
+			--Signal Time-shift buttons
+			-- lr_btn_sh(4)<=pio[XX]; -- upper 4 bits for LEFT shift button
+			-- lr_btn_sh(5)<=lr_btn_sh(4);
+			-- lr_btn_sh(6)<=lr_btn_sh(5);
+			-- lr_btn_sh(7)<=lr_btn_sh(6); -- use bits 7,6 for edge detection
+			-- lr_btn_sh(3)<=pio[XX]; -- lower 4 bits for RIGHT shift button
+			-- lr_btn_sh(2)<=lr_btn_sh(3);
+			-- lr_btn_sh(1)<=lr_btn_sh(2);
+			-- lr_btn_sh(0)<=lr_btn_sh(1); -- use bits 0,1 for edge detection
+			-- if lr_btn_sh(7)='0' and lr_btn_sh(6)='1' then
+			-- 	hshift_n<=hshift+to_signed(-5,10);
+			-- end if;
+			-- if lr_btn_sh(0)='0' and lr_btn_sh(1)='1' then
+			-- 	hshift_n<=hshift+to_signed(5,10);
+			-- end if;
+			-- if frame='1' then
+			-- 	hshift<=hshift_n;
+			-- end if;
 
 			--Up/Down shift Buttons--
 			ud_btn_sh(4)<=pio23; -- upper 4 bits for UP shift button
@@ -318,15 +336,15 @@ begin
 			ud_btn_sh(1)<=ud_btn_sh(2);
 			ud_btn_sh(0)<=ud_btn_sh(1); -- use bits 0,1 for edge detection
 			if ud_btn_sh(7)='0' and ud_btn_sh(6)='1' and
-				v_shift>to_signed(-255,12) then
-				v_shift_n<=v_shift+to_signed(-5,12);
+				vshift>to_signed(-255,12) then
+				vshift_n<=vshift+to_signed(-5,12);
 			end if;
 			if ud_btn_sh(0)='0' and ud_btn_sh(1)='1' and 
-				v_shift<to_signed(255,12) then
-				v_shift_n<=v_shift+to_signed(5,12);
+				vshift<to_signed(255,12) then
+				vshift_n<=vshift+to_signed(5,12);
 			end if;
 			if frame='1' then
-				v_shift<=v_shift_n;
+				vshift<=vshift_n;
 			end if;
 
 			--Amplitude-scale Buttons--
@@ -686,7 +704,7 @@ begin
 			end if;
             if init='0' and 
 				vcount>=grid_top and vcount<=grid_bottom and hcount>=grid_left and hcount<=grid_right and
-				vcount=unsigned(signed(scaled_sig)+v_shift) then	--unsigned(dataa(11 downto 0))/(4096/grid-height)
+				vcount=unsigned(signed(scaled_sig)+vshift) then	--unsigned(dataa(11 downto 0))/(4096/grid-height)
 				line_red<=b"00";            
 				line_grn<=b"11";
 				line_blu<=b"00";

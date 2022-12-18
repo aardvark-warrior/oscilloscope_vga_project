@@ -137,6 +137,23 @@ architecture arch of Oscilliscope is
 	signal ts_btn_sh:   std_logic_vector(7 downto 0):=(others=>'0'); 	-- upper 4 bits (time stretch), 	lower 4 bits (time compress)
 	signal trig_btn_sh: std_logic_vector(7 downto 0):=(others=>'0');	-- upper 4 bits (trigger up), 		lower 4 bits (trigger down)
 	signal ram_led:   	std_logic_vector(3 downto 0);	-- debugging LEDs
+	--Debounce flags and counts
+	signal b23_f:		std_logic:='1';
+	signal b22_f:		std_logic:='1';
+	signal b20_f:		std_logic:='1';
+	signal b19_f:		std_logic:='1';
+	signal b17_f:		std_logic:='1';
+	signal b16_f:		std_logic:='1';
+	signal b8_f:		std_logic:='1';
+	signal b7_f:		std_logic:='1';
+	signal b23_cnt:		unsigned(20 downto 0):=to_unsigned(0,21);
+	signal b22_cnt:		unsigned(20 downto 0):=to_unsigned(0,21);
+	signal b20_cnt:		unsigned(20 downto 0):=to_unsigned(0,21);
+	signal b19_cnt:		unsigned(20 downto 0):=to_unsigned(0,21);
+	signal b17_cnt:		unsigned(20 downto 0):=to_unsigned(0,21);
+	signal b16_cnt:		unsigned(20 downto 0):=to_unsigned(0,21);
+	signal b8_cnt:		unsigned(20 downto 0):=to_unsigned(0,21);
+	signal b7_cnt:		unsigned(20 downto 0):=to_unsigned(0,21);
 	--Trigger
 	signal detected:	std_logic:='0';
 	signal fin_write:	std_logic:='0';

@@ -156,7 +156,7 @@ architecture arch of Oscilliscope is
 	signal b7_cnt:		unsigned(20 downto 0):=to_unsigned(0,21);
 	--Trigger
 	signal detected:	std_logic:='0';
-	signal fin_write:	std_logic:='0';
+	signal init:		std_logic:='1';
 	signal tr_addr:		std_logic_vector(9 downto 0);	-- ADC side of trigger takes care of h_shift
 	signal tr_addr0:	std_logic_vector(9 downto 0);	-- when read by VGA, tr_addrX already includes shift
 	signal tr_addr1:	std_logic_vector(9 downto 0);
@@ -412,12 +412,16 @@ begin
 				else
 					if adc_loc = b"00" then
 						web <= (0=>rdy,others=>'0');
+						ram_led(3 downto 2) <= b"00";
 					elsif adc_loc = b"01" then
 						web <= (1=>rdy,others=>'0');
+						ram_led(3 downto 2) <= b"01";
 					elsif adc_loc = b"10" then
 						web <= (2=>rdy,others=>'0');
+						ram_led(3 downto 2) <= b"10";
 					else
 						web <= (3=>rdy,others=>'0');
+						ram_led(3 downto 2) <= b"11";
 					end if;
 					-- State 3: Read 240 + h_shift values after trigger detected
 					if (detected = '1') then
@@ -433,6 +437,7 @@ begin
 					-- State 2: Waiting for trigger (after reading 240 + h_shift initial values)
 					elsif (signed(addrb) >= signed(grid_width/2) + h_shift) then
 						if (unsigned(datab(11 downto 0)) >= lvl) then
+							init <= '0';
 							detected <= '1';
 							tr_addr <= addrb;
 						end if;
@@ -684,7 +689,7 @@ begin
 			else
 				scaled_sig(11 downto 0) <= grid_top+grid_height- unsigned(dataa(11 downto 0))/ratio/gain;
 			end if;
-            if detected='1' and 
+            if init='0' and 
 				vcount>=grid_top and vcount<=grid_bottom and hcount>=grid_left and hcount<=grid_right and
 				vcount=unsigned(signed(scaled_sig)+v_shift) then	--unsigned(dataa(11 downto 0))/(4096/grid-height)
 				line_red<=b"00";            

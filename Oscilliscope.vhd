@@ -142,6 +142,26 @@ architecture arch of Oscilliscope is
 	signal lr_btn_sh:   std_logic_vector(7 downto 0):=(others=>'0'); -- upper 4 bits (shift left), 		lower 4 bits (shift right)
 	signal vs_btn_sh:	std_logic_vector(7 downto 0):=(others=>'0'); -- upper 4 bits (voltage scale up),lower 4 bits (scale down)
 	signal ts_btn_sh:   std_logic_vector(7 downto 0):=(others=>'0'); -- upper 4 bits (time stretch), 	lower 4 bits (time compress)
+	signal cnt16:       unsigned(20 downto 0):=to_unsigned(0,21);
+	signal cnt17:       unsigned(20 downto 0):=to_unsigned(0,21);
+	signal cnt19:        unsigned(20 downto 0):=to_unsigned(0,21);
+	signal cnt20:       unsigned(20 downto 0):=to_unsigned(0,21);
+	signal cnt22:        unsigned(20 downto 0):=to_unsigned(0,21);
+	signal cnt23:       unsigned(20 downto 0):=to_unsigned(0,21);
+	signal cnt1:        unsigned(20 downto 0):=to_unsigned(0,21);
+	signal cnt0:        unsigned(20 downto 0):=to_unsigned(0,21);
+	signal state1:      std_logic:='1';
+    signal state2:      std_logic:='1';
+    signal state3:      std_logic:='1';
+    signal state4:      std_logic:='1';
+    signal state5:      std_logic:='1';
+    signal state6:      std_logic:='1';
+    signal state7:      std_logic:='1';
+    signal state8:      std_logic:='1';
+
+	
+	
+	
 	signal ram_led:   	std_logic_vector(3 downto 0);
 
 begin
@@ -220,38 +240,71 @@ begin
 	process(clkfx)
 	begin
 		if rising_edge(clkfx) then
-			--Time scale buttons--
+			--Time scale buttons--Debounced
 			ts_btn_sh(4)<=pio17; -- upper 4 bits for stretch time button
 			ts_btn_sh(5)<=ts_btn_sh(4);
 			ts_btn_sh(6)<=ts_btn_sh(5);
 			ts_btn_sh(7)<=ts_btn_sh(6); -- use bits 7,6 for edge detection
+			-- Saturation counter
+			if (ts_btn_sh(6)='1') then
+					if cnt17/=to_unsigned(300000,21) then
+						cnt17 <= cnt17 + 1;
+					else
+						if state1='1' then
+							state1<='0';
+							ts_state_n <= ts_state+1;
+                            if ts_state<to_signed(0,8) then
+                                    if ts_state_n=to_signed(0,8) then
+                                        t_scale_n <= to_unsigned(1,10);
+                                    else
+                                        t_scale_n <= t_scale-1;
+                                    end if;
+                            else
+                                    t_scale_n <= t_scale + 1;
+                            end if;
+						end if;
+					end if;
+			else
+					if (cnt17/=to_unsigned(0,21)) then
+						cnt17<=cnt17-1;
+					else
+						if state1='0' then
+							state1<='1';
+						end if;
+					end if;
+			end if;
+
+			
 			ts_btn_sh(3)<=pio16; -- lower 4 bits for compress time button
 			ts_btn_sh(2)<=ts_btn_sh(3);
 			ts_btn_sh(1)<=ts_btn_sh(2);
 			ts_btn_sh(0)<=ts_btn_sh(1); -- use bits 0,1 for edge detection
-			if ts_btn_sh(7)='0' and ts_btn_sh(6)='1' then
-				ts_state_n <= ts_state+1;
-				if ts_state<to_signed(0,8) then
-					if ts_state_n=to_signed(0,8) then
-						t_scale_n <= to_unsigned(1,10);
+			if (ts_btn_sh(1)='1') then
+					if cnt16/=to_unsigned(300000,21) then
+						cnt16 <= cnt16 + 1;
 					else
-						t_scale_n <= t_scale-1;
+						if state2='1' then
+							state2<='0';
+							ts_state_n <= ts_state-1;
+                            if ts_state>to_signed(0,8) then
+                                if ts_state_n=to_signed(0,8) then
+                                    t_scale_n <= to_unsigned(1,10);
+                                else
+                                    t_scale_n <= t_scale-1;
+                                end if;
+                            else
+                                t_scale_n <= t_scale + 1;
+                            end if;
+						end if;
 					end if;
-				else
-					t_scale_n <= t_scale + 1;
-				end if;
-			end if;
-			if ts_btn_sh(0)='0' and ts_btn_sh(1)='1' then
-				ts_state_n <= ts_state-1;
-				if ts_state>to_signed(0,8) then
-					if ts_state_n=to_signed(0,8) then
-						t_scale_n <= to_unsigned(1,10);
+			else
+					if (cnt16/=to_unsigned(0,21)) then
+						cnt16<=cnt16-1;
 					else
-						t_scale_n <= t_scale-1;
+						if state2='0' then
+							state2<='1';
+						end if;
 					end if;
-				else
-					t_scale_n <= t_scale + 1;
-				end if;
 			end if;
 			if frame='1' then
 				ts_state <= ts_state_n;
@@ -263,15 +316,48 @@ begin
 			lr_btn_sh(5)<=lr_btn_sh(4);
 			lr_btn_sh(6)<=lr_btn_sh(5);
 			lr_btn_sh(7)<=lr_btn_sh(6); -- use bits 7,6 for edge detection
+			if (lr_btn_sh(6)='1') then
+					if cnt20/=to_unsigned(300000,21) then
+						cnt20 <= cnt20 + 1;
+					else
+						if state3='1' then
+							state3<='0';
+                            h_shift_next<=h_shift+to_signed(-5,10);
+						end if;
+					end if;
+			else
+					if (cnt20/=to_unsigned(0,21)) then
+						cnt20<=cnt20-1;
+					else
+						if state3='0' then
+							state3<='1';
+						end if;
+					end if;
+			end if;
+			
+			
+			
 			lr_btn_sh(3)<=pio19; -- lower 4 bits for RIGHT shift button
 			lr_btn_sh(2)<=lr_btn_sh(3);
 			lr_btn_sh(1)<=lr_btn_sh(2);
 			lr_btn_sh(0)<=lr_btn_sh(1); -- use bits 0,1 for edge detection
-			if lr_btn_sh(7)='0' and lr_btn_sh(6)='1' then
-				h_shift_next<=h_shift+to_signed(-5,10);
-			end if;
-			if lr_btn_sh(0)='0' and lr_btn_sh(1)='1' then
-				h_shift_next<=h_shift+to_signed(5,10);
+			if (lr_btn_sh(1)='1') then
+					if cnt19/=to_unsigned(300000,21) then
+						cnt19 <= cnt19 + 1;
+					else
+						if state4='1' then
+							state4<='0';
+				            h_shift_next<=h_shift+to_signed(5,10);
+						end if;
+					end if;
+			else
+					if (cnt19/=to_unsigned(0,21)) then
+						cnt19<=cnt19-1;
+					else
+						if state4='0' then
+							state4<='1';
+						end if;
+					end if;
 			end if;
 			if frame='1' then
 				h_shift<=h_shift_next;
@@ -282,15 +368,48 @@ begin
 			ud_btn_sh(5)<=ud_btn_sh(4);
 			ud_btn_sh(6)<=ud_btn_sh(5);
 			ud_btn_sh(7)<=ud_btn_sh(6); -- use bits 7,6 for edge detection
+			if (ud_btn_sh(6)='1') then
+					if cnt23/=to_unsigned(300000,21) then
+						cnt23 <= cnt23 + 1;
+					else
+						if state5='1' then
+							state5<='0';
+    				        v_shift_next<=v_shift+to_signed(-5,12);
+						end if;
+					end if;
+			else
+					if (cnt23/=to_unsigned(0,21)) then
+						cnt23<=cnt23-1;
+					else
+						if state5='0' then
+							state5<='1';
+						end if;
+					end if;
+			end if;
+			
+			
+			
 			ud_btn_sh(3)<=pio22; -- lower 4 bits for DOWN shift button
 			ud_btn_sh(2)<=ud_btn_sh(3);
 			ud_btn_sh(1)<=ud_btn_sh(2);
 			ud_btn_sh(0)<=ud_btn_sh(1); -- use bits 0,1 for edge detection
-			if ud_btn_sh(7)='0' and ud_btn_sh(6)='1' then
-				v_shift_next<=v_shift+to_signed(-5,12);
-			end if;
-			if ud_btn_sh(0)='0' and ud_btn_sh(1)='1' then
-				v_shift_next<=v_shift+to_signed(5,12);
+			if (ud_btn_sh(1)='1') then
+					if cnt22/=to_unsigned(300000,21) then
+						cnt22 <= cnt22 + 1;
+					else
+						if state6='1' then
+							state6<='0';
+    				        v_shift_next<=v_shift+to_signed(5,12);
+						end if;
+					end if;
+			else
+					if (cnt22/=to_unsigned(0,21)) then
+						cnt22<=cnt22-1;
+					else
+						if state6='0' then
+							state6<='1';
+						end if;
+					end if;
 			end if;
 			if frame='1' then
 				v_shift<=v_shift_next;
@@ -301,28 +420,65 @@ begin
 			vs_btn_sh(5)<=vs_btn_sh(4);
 			vs_btn_sh(6)<=vs_btn_sh(5);
 			vs_btn_sh(7)<=vs_btn_sh(6); -- use bits 7,6 for edge detection
+			if (vs_btn_sh(6)='1') then
+					if cnt1/=to_unsigned(300000,21) then
+						cnt1 <= cnt1 + 1;
+					else
+						if state7='1' then
+							state7<='0';
+    				        gn_state_n <= gn_state+1;
+                            if gn_state<to_signed(0,8) then
+                                if gn_state_n=to_signed(0,8) then
+                                    gain_next <= to_unsigned(1,12);
+                                else
+                                    gain_next <= gain-1;
+                                end if;
+                            else
+                                gain_next <= gain+1;
+                            end if;
+						end if;
+					end if;
+			else
+					if (cnt1/=to_unsigned(0,21)) then
+						cnt1<=cnt1-1;
+					else
+						if state7='0' then
+							state7<='1';
+						end if;
+					end if;
+			end if;
+			
+			
 			vs_btn_sh(3)<=btn(0); -- lower 4 bits for scale-down
 			vs_btn_sh(2)<=vs_btn_sh(3);
 			vs_btn_sh(1)<=vs_btn_sh(2);
 			vs_btn_sh(0)<=vs_btn_sh(1); -- use bits 0,1 for edge detection
-			if vs_btn_sh(7)='0' and vs_btn_sh(6)='1' then
-				gn_state_n <= gn_state+1;
-				if gn_state<to_signed(0,8) then
-					if gn_state_n=to_signed(0,8) then
-						gain_next <= to_unsigned(1,12);
+			if (vs_btn_sh(1)='1') then
+					if cnt0/=to_unsigned(300000,21) then
+						cnt0 <= cnt0 + 1;
 					else
-						gain_next <= gain-1;
+						if state8='1' then
+							state8<='0';
+    				        gn_state_n <= gn_state - 1;
+                            if gn_state>to_signed(0,8) then
+                                if gn_state_n=to_signed(0,8) then
+                                    gain_next <= to_unsigned(1,12);
+                                else 
+                                    gain_next <= gain-1;
+                                end if;
+                            else
+                                gain_next <= gain+1;
+                            end if;
+						end if;
 					end if;
-				else
-					gain_next <= gain+1;
-				end if;
-				-- if gn_state<to_signed(0,8) then
-				-- 	gain_next <= gain - 1;
-				-- elsif gn_state>to_signed(0,8) then
-				-- 	gain_next <= gain + 1;
-				-- else
-				-- 	gain_next <= to_unsigned(1,12);
-				-- end if;
+			else
+					if (cnt0/=to_unsigned(0,21)) then
+						cnt0<=cnt0-1;
+					else
+						if state8='0' then
+							state8<='1';
+						end if;
+					end if;
 			end if;
 			if vs_btn_sh(0)='0' and vs_btn_sh(1)='1' then
 				gn_state_n <= gn_state - 1;
@@ -611,50 +767,38 @@ begin
 	process(clkfx,grd_red,grd_blu,grd_grn,line_red,line_grn,line_blu)
     begin
         if rising_edge(clkfx) then
-            if (hcount=80) or
-               (hcount=160) or
-               (hcount=240) or
-               (hcount=320) or
-               (hcount=400) or
-               (hcount=480) or
-               (hcount=560) or
-               (vcount=80) or
-               (vcount=160) or
-               (vcount=240) or
-               (vcount=320) or
-               (vcount=400) or
-               (vcount=480) then  
-                obj1_red<=b"01";
-                obj1_grn<=b"01";
-                obj1_blu<=b"01";
+			-- Draw grid
+            if vcount>=grid_top and vcount<=grid_bottom and hcount>=grid_left and hcount<=grid_right and
+				(vcount=grid_top+grid_height/4 or vcount=grid_top+3*grid_height/4 or 
+				 hcount=grid_left+grid_width/4 or hcount=grid_left+3*grid_width/4 or
+				 hcount=grid_left+grid_width/8 or hcount=grid_left+3*grid_width/8 or
+				 hcount=grid_left+5*grid_width/8 or hcount=grid_left+7*grid_width/8) then
+				grd_red<=b"01";            
+				grd_grn<=b"01";
+				grd_blu<=b"01";
+			elsif vcount>=grid_top and vcount<=grid_bottom and hcount>=grid_left and hcount<=grid_right and 
+				(vcount=grid_top or vcount=grid_top+grid_height/2 or vcount=grid_bottom or 
+				 hcount=grid_left or hcount=grid_left+grid_width/2 or hcount=grid_right) then
+				grd_red<=b"10";
+				grd_grn<=b"10";
+				grd_blu<=b"10";
             else
                 grd_red<=b"00";            
                 grd_grn<=b"00";
                 grd_blu<=b"00";
             end if;
-			-- Hard code green horizontal line centre of screen
-			-- if (vcount=240) then
-			-- 	obj2_red<=b"00";
-			-- 	obj2_grn<=b"11";
-			-- 	obj2_blu<=b"00";
-			-- else
-			-- 	obj2_red<=b"00";
-			-- 	obj2_grn<=b"00";
-			-- 	obj2_blu<=b"00";
-			-- end if;
-			-- if (vcount=(480*(1-unsigned(dataa(11 downto 0))/4095))) then
-			-- 	obj2_red<=b"00";
-			-- 	obj2_grn<=b"11";
-			-- 	obj2_blu<=b"00";
-			-- else
-			-- 	obj2_red<=b"00";
-			-- 	obj2_grn<=b"00";
-			-- 	obj2_blu<=b"00";
-			-- end if;
-			if (vcount = 525 - 525/3 - to_integer(5 + 10*unsigned(dataa(11 downto 0)))/78) then
-				obj2_red<=b"00";            
-				obj2_grn<=b"11";
-				obj2_blu<=b"00";
+			-- Apply gain
+			if gn_state>=to_signed(0,8) then
+				scaled_sig <= grid_top+grid_height- gain*unsigned(dataa(11 downto 0))/ratio;
+			else
+				scaled_sig(11 downto 0) <= grid_top+grid_height- unsigned(dataa(11 downto 0))/ratio/gain;
+			end if;
+			-- Apply shift, draw line
+            if vcount>=grid_top and vcount<=grid_bottom and hcount>=grid_left and hcount<=grid_right and
+				vcount=unsigned(signed(scaled_sig)+v_shift) then	--unsigned(dataa(11 downto 0))/(4096/grid-height)
+				line_red<=b"00";            
+				line_grn<=b"11";
+				line_blu<=b"00";
 			else
 				line_red<=b"00";            
 				line_grn<=b"00";

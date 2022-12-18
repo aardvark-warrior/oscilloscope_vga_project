@@ -8,9 +8,6 @@ entity Oscilliscope is
 	port(
 		btn: 	in  std_logic_vector(1 downto 0);
 		led:	out std_logic_vector(3 downto 0);
-		led0_r	out std_logic;
-		led0_b	out std_logic;
-		led0_g 	out std_logic;
 		--Oscilliscope
 		clk:	in  std_logic;
 		vaux5_n:in  std_logic;
@@ -120,8 +117,8 @@ architecture arch of Oscilliscope is
 	signal gain:		unsigned(11 downto 0):=to_unsigned(1,12);	
 	signal gain_n:		unsigned(11 downto 0):=to_unsigned(1,12);
 	--Signal Horizontal Shift and Time Scale
-	signal hshift:		signed(11 downto 0):=to_signed(0,12);
-	signal hshift_n:	signed(11 downto 0):=to_signed(0,12);
+	signal hshift:		signed(9 downto 0):=to_signed(0,10);
+	signal hshift_n:	signed(9 downto 0):=to_signed(0,10);
 	signal t_scale:		unsigned(9 downto 0):=to_unsigned(1,10);
 	signal t_scale_n:   unsigned(9 downto 0):=to_unsigned(1,10);
 	--Scope grid dimensions

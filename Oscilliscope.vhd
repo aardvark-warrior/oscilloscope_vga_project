@@ -81,7 +81,7 @@ architecture arch of Oscilliscope is
 		);
 	end component;
 	--XADC--
-	constant samples: natural:=1024;
+	constant samples: natural:=480;
 	signal fclk:    std_logic;
 	signal rdy:  	std_logic;
 	signal out31: 	std_logic;
@@ -96,7 +96,7 @@ architecture arch of Oscilliscope is
 	signal adc_loc_next: 	unsigned(1 downto 0);
 	signal vga_loc: 		unsigned(1 downto 0):=b"00";	-- track vga location in buffer chain
 	signal vga_loc_next: 	unsigned(1 downto 0);
-	signal prev_adc: 		unsigned(1 downto 0):=b"00";
+	signal prev_adc: 		unsigned(1 downto 0);
 	signal dataa0: 	std_logic_vector(35 downto 0); 	
 	signal dataa1: 	std_logic_vector(35 downto 0); 	
 	signal dataa2: 	std_logic_vector(35 downto 0); 	
@@ -153,7 +153,6 @@ architecture arch of Oscilliscope is
 	signal ram_led:   	std_logic_vector(3 downto 0);
 	--Trigger
 	signal detected:		std_logic:='0';
-	signal init:			std_logic:='1';
 	signal fin_write:		std_logic:='0';
 	signal tr_addr:			std_logic_vector(9 downto 0);
 	signal tr_addr0:		std_logic_vector(9 downto 0);
@@ -162,8 +161,8 @@ architecture arch of Oscilliscope is
 	signal tr_addr3:		std_logic_vector(9 downto 0);
 	signal read_addr:		std_logic_vector(9 downto 0);
 	signal read_addr_n:		std_logic_vector(9 downto 0);
-	signal thresh:			unsigned(11 downto 0):=to_unsigned(4095,12);
-	signal thresh_n:		unsigned(11 downto 0):=to_unsigned(4095,12);
+	signal thresh:			unsigned(11 downto 0):=to_unsigned(3500,12);
+	signal thresh_n:		unsigned(11 downto 0):=to_unsigned(3500,12);
 	constant thresh_inc:	unsigned(11 downto 0):=to_unsigned(48,12);
 	signal scaled_trig:		unsigned(11 downto 0);	-- scaled_tr <= grid_height - thresh/ratio;
 
@@ -389,7 +388,7 @@ begin
 	process(fclk) 
 	begin
 		-- Select next ram in buffer chain, skipping vga_loc
-		if adc_loc=vga_loc-1 then -- vga_loc vs. prev_adc_loc
+		if adc_loc=vga_loc-1 then
 			adc_loc_next <= vga_loc+1;
 		else
 			adc_loc_next <= adc_loc+1;
@@ -399,25 +398,23 @@ begin
 		if rising_edge(fclk) then -- fclk from cmt 52 MHz for ADC; rdy is synced with fclk
 			if rdy='1' then
 				if unsigned(addrb)>=grid_width/2 and detected='0'  then
-					if unsigned(datab(11 downto 0))>=thresh then
-						init <= '0';
+					if detected='0' and unsigned(datab(11 downto 0))>=thresh then
 						detected <= '1';
 						prev_adc <= adc_loc;
 						tr_addr	<= addrb;
-					end if;
-				elsif unsigned(addrb)>=grid_width/2 and detected='1' and fin_write='0' then
-					if unsigned(addrb)=unsigned(tr_addr)+(grid_width/2-1) then --to_unsigned(grid_width/to_unsigned(2,10)-to_unsigned(1,10),10) then
+					elsif detected='1' and fin_write='0' and
+						unsigned(addrb)=unsigned(tr_addr)+(grid_width/2-1) then
 						fin_write <='1';
+						adc_loc <= adc_loc_next;
+						detected <= '0';
 					end if;
 				end if;
 
 				if (addrb=std_logic_vector(to_unsigned(samples-1,10))) or fin_write='1'  then
+					addrb<=b"00_0000_0000";
 					if fin_write='1' then
 						fin_write <='0';
-						detected <= '0';
-						adc_loc <= adc_loc_next;	-- Only update adc_loc when finished writing a ram block
 					end if;
-					addrb<=b"00_0000_0000";
 					-- set write enable
 					if adc_loc_next=to_unsigned(0,2) then
 						web <= (0=>rdy,others=>'0');
@@ -434,19 +431,19 @@ begin
 					if adc_loc=to_unsigned(0,2) then
 						web <= (0=>rdy,others=>'0');
 						tr_addr0 <= tr_addr;
-						ram_led(3 downto 2) <= b"00";
+						ram_led <= b"0001";
 					elsif adc_loc=to_unsigned(1,2) then
 						web <= (1=>rdy,others=>'0');
 						tr_addr1 <= tr_addr;
-						ram_led(3 downto 2) <= b"01";
+						ram_led <= b"0010";
 					elsif adc_loc=to_unsigned(2,2) then
 						web <= (2=>rdy,others=>'0');
 						tr_addr2 <= tr_addr;
-						ram_led(3 downto 2) <= b"10";
+						ram_led <= b"0100";
 					else
 						web <= (3=>rdy,others=>'0');
 						tr_addr3 <= tr_addr;
-						ram_led(3 downto 2) <= b"11";
+						ram_led <= b"1000";
 					end if;
 				end if;
 			else
@@ -455,7 +452,7 @@ begin
 		end if;
 	end process;
 
-------------------------------------------------------------------
+	------------------------------------------------------------------
 	-- RAM from Buffer Chain logic
 	------------------------------------------------------------------
 	addr_a <= ram_idx(9 downto 0); --std_logic_vector(hcount);
@@ -473,18 +470,17 @@ begin
 		-- 	vga_loc_next <= adc_loc-1;
 		-- end if;
 		vga_loc_next <= prev_adc;
+		if prev_adc=b"00" then
+			read_addr_n <= std_logic_vector(unsigned(tr_addr0)-grid_width/2);
+		elsif prev_adc=b"01" then
+			read_addr_n <= std_logic_vector(unsigned(tr_addr1)-grid_width/2);
+		elsif prev_adc=b"10" then
+			read_addr_n <= std_logic_vector(unsigned(tr_addr2)-grid_width/2);
+		else
+			read_addr_n <= std_logic_vector(unsigned(tr_addr3)-grid_width/2);
+		end if;
 
 		if rising_edge(clkfx) then
-			if prev_adc=b"00" then
-				read_addr_n <= std_logic_vector(unsigned(tr_addr0)-grid_width/2);
-			elsif prev_adc=b"01" then
-				read_addr_n <= std_logic_vector(unsigned(tr_addr1)-grid_width/2);
-			elsif prev_adc=b"10" then
-				read_addr_n <= std_logic_vector(unsigned(tr_addr2)-grid_width/2);
-			else
-				read_addr_n <= std_logic_vector(unsigned(tr_addr3)-grid_width/2);
-			end if;
-
 			if unsigned(ram_idx)>=unsigned(read_addr)+grid_width-1 then
 				ram_idx <= read_addr;
 			else
@@ -505,16 +501,16 @@ begin
 			else
 				if vga_loc=to_unsigned(0,2) then
 					dataa <= dataa0;
-					ram_led(1 downto 0) <= b"00";
+					-- ram_led <= b"0001";
 				elsif vga_loc<=to_unsigned(1,2) then
 					dataa <= dataa1;
-					ram_led(1 downto 0) <= b"01";
+					-- ram_led <= b"0010";
 				elsif vga_loc<=to_unsigned(2,2) then
 					dataa <= dataa2;
-					ram_led(1 downto 0) <= b"10";
+					-- ram_led <= b"0100";
 				else
 					dataa <= dataa3;
-					ram_led(1 downto 0) <= b"11";
+					-- ram_led <= b"1000";
 				end if;
 			end if;
 		end if;
@@ -705,7 +701,7 @@ begin
 			else
 				scaled_sig(11 downto 0) <= grid_top+grid_height- unsigned(dataa(11 downto 0))/ratio/gain;
 			end if;
-            if init='0' and 
+            if detected='1' and 
 				vcount>=grid_top and vcount<=grid_bottom and hcount>=grid_left and hcount<=grid_right and
 				vcount=unsigned(signed(scaled_sig)+v_shift) then	--unsigned(dataa(11 downto 0))/(4096/grid-height)
 				line_red<=b"00";            

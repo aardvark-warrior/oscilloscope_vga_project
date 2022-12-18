@@ -229,7 +229,17 @@ begin
 
 	------------------------------------------------------------------
 	-- Button Metastability Shift
-		-- TODO: add debouncing
+		-- TODO: Debounce
+			-- Ignore btn(1) btn(0) to start (on board buttons don't bounce much)
+			-- Start with btn23/22 (up/down shift signal) and test to make sure working
+			-- Then btn8/7 (toggle button modes) and test to make sure working
+			-- Finally, do btn17/16 and btn20/19 and test to make sure working
+				-- these are prob most complicated because of nested logic
+				-- Big idea: 
+					-- when toggle='1': btn17/16 moves trigger level up and down
+					--					btn20/19 moves trigger left and right
+					-- when toggle='0': btn17/16 compresses/stretches signal time scale
+					--					btn20/19 moves signal left and right
 		-- Basic idea:
 			-- Vertical stretch   -> multiply/divide dataa (before comparing to vcount)
 			-- Vertical shift 	  -> add/subtract dataa
@@ -327,7 +337,7 @@ begin
 			end if;
 
 			------------------------------------------------------------
-			-- DO NOT TOUCH BELOW
+			-- DO NOT TOUCH BELOW (Chris: ignore this. Add debounce pls)
 			------------------------------------------------------------
 			--btn23
 			ud_btn_sh(4)<=pio23; 
@@ -409,8 +419,6 @@ begin
 		if rising_edge(fclk) then -- fclk from cmt 52 MHz for ADC; rdy is synced with fclk
 			if rdy='1' then
 				-- Transition from State 3->1: Save last-used RAM, Move to next RAM, Reset addrb and detected flag
-				-- (addrb = std_logic_vector(signed(unsigned(tr_addr) + (grid_width/2-1)) + tr_h_shift)) -> Write one full screen of data
-					-- Problem: Garbage values when using t_scale, because only grid_width # of values written; Scaling by 2 requires grid_width*2 # values
 				if (addrb = std_logic_vector(signed(unsigned(tr_addr) - grid_width/2) + tr_h_shift))  and detected = '1' then
 					prev_adc <= adc_loc;
 					adc_loc <= adc_loc_n;

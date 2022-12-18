@@ -166,7 +166,6 @@ architecture arch of Oscilliscope is
 	constant thresh_inc:	unsigned(11 downto 0):=to_unsigned(48,12);
 	signal scaled_trig:		unsigned(11 downto 0);	-- scaled_tr <= grid_height - thresh/ratio;
 
-
 begin
     --BEGIN WITH OSCILLISCOPE MEASUREMENT
 	gui:  Oscilliscope_gui generic map (SAMPLES=>samples)
@@ -418,12 +417,16 @@ begin
 					-- set write enable
 					if adc_loc_next=to_unsigned(0,2) then
 						web <= (0=>rdy,others=>'0');
+						ram_led(3 downto 2) <= b"00";
 					elsif adc_loc_next=to_unsigned(1,2) then
 						web <= (1=>rdy,others=>'0');
+						ram_led(3 downto 2) <= b"01";
 					elsif adc_loc_next=to_unsigned(2,2) then
 						web <= (2=>rdy,others=>'0');
+						ram_led(3 downto 2) <= b"10";
 					else
 						web <= (3=>rdy,others=>'0');
+						ram_led(3 downto 2) <= b"11";
 					end if;
 				else
 					addrb<=std_logic_vector(unsigned(addrb) + to_unsigned(1,10));
@@ -431,19 +434,19 @@ begin
 					if adc_loc=to_unsigned(0,2) then
 						web <= (0=>rdy,others=>'0');
 						tr_addr0 <= tr_addr;
-						ram_led <= b"0001";
+						-- ram_led <= b"0001";
 					elsif adc_loc=to_unsigned(1,2) then
 						web <= (1=>rdy,others=>'0');
 						tr_addr1 <= tr_addr;
-						ram_led <= b"0010";
+						-- ram_led <= b"0010";
 					elsif adc_loc=to_unsigned(2,2) then
 						web <= (2=>rdy,others=>'0');
 						tr_addr2 <= tr_addr;
-						ram_led <= b"0100";
+						-- ram_led <= b"0100";
 					else
 						web <= (3=>rdy,others=>'0');
 						tr_addr3 <= tr_addr;
-						ram_led <= b"1000";
+						-- ram_led <= b"1000";
 					end if;
 				end if;
 			else
@@ -501,16 +504,16 @@ begin
 			else
 				if vga_loc=to_unsigned(0,2) then
 					dataa <= dataa0;
-					-- ram_led <= b"0001";
+					ram_led(1 downto 0) <= b"00";
 				elsif vga_loc<=to_unsigned(1,2) then
 					dataa <= dataa1;
-					-- ram_led <= b"0010";
+					ram_led(1 downto 0) <= b"01";
 				elsif vga_loc<=to_unsigned(2,2) then
 					dataa <= dataa2;
-					-- ram_led <= b"0100";
+					ram_led(1 downto 0) <= b"10";
 				else
 					dataa <= dataa3;
-					-- ram_led <= b"1000";
+					ram_led(1 downto 0) <= b"11";
 				end if;
 			end if;
 		end if;

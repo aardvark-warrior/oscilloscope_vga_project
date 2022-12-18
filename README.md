@@ -25,8 +25,9 @@
 - `Oscilloscope` in Oscilloscope.xdc
 
 12/18 00:15
-improve trigger by tracing before and after values
-add horizontal scale
+/improve trigger by tracing before and after values
+/add horizontal scale
+Need 2 mors buttons to move signal horizontally
 button debounce
 
 ### **12/15/2022 15:28**

@@ -403,7 +403,9 @@ begin
 		if rising_edge(fclk) then -- fclk from cmt 52 MHz for ADC; rdy is synced with fclk
 			if rdy='1' then
 				-- Transition from State 3->1: Save last-used RAM, Move to next RAM, Reset addrb and detected flag
-				if (addrb = std_logic_vector(signed(unsigned(tr_addr) + (grid_width/2-1)) + tr_h_shift))  and detected = '1' then	-- t_scale*(grid_width/2-1)
+				-- (addrb = std_logic_vector(signed(unsigned(tr_addr) + (grid_width/2-1)) + tr_h_shift)) -> Write one full screen of data
+					-- Problem: Garbage values when using t_scale, because only grid_width # of values written; Scaling by 2 requires grid_width*2 # vals
+				if (addrb = std_logic_vector(signed(unsigned(tr_addr) - grid_width/2) + tr_h_shift))  and detected = '1' then
 					prev_adc <= adc_loc;
 					adc_loc <= adc_loc_n;
 					addrb <= b"00_0000_0000";
@@ -443,8 +445,8 @@ begin
 							tr_addr3 <= tr_addr;
 						end if;
 					-- State 2: Waiting for trigger (after reading 240 + h_shift initial values)
-					elsif (signed(addrb) >= signed(grid_width/2) + tr_h_shift) then		-- t_scale*grid_width/2
-						if (signed(addrb) = signed(grid_width/2) + tr_h_shift) then		-- t_scale*grid_width/2
+					elsif (signed(addrb) >= signed(grid_width/2) + tr_h_shift) then		
+						if (signed(addrb) = signed(grid_width/2) + tr_h_shift) then		
 							pretrig <= datab(11 downto 0);
 						end if;
 						-- rising edge trigger

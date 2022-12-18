@@ -168,7 +168,7 @@ architecture arch of Oscilliscope is
 	signal scaled_trig:	unsigned(11 downto 0);			-- scaled_tr <= grid_height - thresh/ratio;
 	signal lvl:			unsigned(11 downto 0):=to_unsigned(3900,12);
 	signal lvl_n:		unsigned(11 downto 0):=to_unsigned(3900,12);
-	constant lvl_step:	unsigned(11 downto 0):=to_unsigned(160,12);
+	constant lvl_step:	unsigned(11 downto 0):=to_unsigned(128,12);
 
 
 begin
@@ -519,7 +519,7 @@ begin
 	begin
 		if rising_edge(fclk) then
 			counter <= counter + to_unsigned(1,11);
-			if (counter = "10000010000") then -- 1040
+			if (counter = "00000000000") then -- 1040 10000010000
 				out31 <= not out31;
 				counter <= b"00000000001";
 			end if;
@@ -670,20 +670,20 @@ begin
     begin
         if rising_edge(clkfx) then
 			-- Draw grid
-            if vcount>=grid_top and vcount<=grid_bottom and hcount>=grid_left and hcount<=grid_right and
-				(vcount=grid_top+grid_height/4 or vcount=grid_top+3*grid_height/4 or 
-				 hcount=grid_left+grid_width/4 or hcount=grid_left+3*grid_width/4 or
+			if vcount>=grid_top and vcount<=grid_bottom and hcount>=grid_left and hcount<=grid_right and 
+				(vcount=grid_top or vcount=scaled_trig or vcount=grid_bottom or --grid_top+grid_height/2
+				 hcount=grid_left or hcount=unsigned(signed(grid_left+grid_width/2)+h_shift) or hcount=grid_right) then
+				grd_red<=b"10";
+				grd_grn<=b"10";
+				grd_blu<=b"10";
+            elsif vcount>=grid_top and vcount<=grid_bottom and hcount>=grid_left and hcount<=grid_right and
+				(vcount=grid_top+grid_height/4 or vcount=grid_top+grid_height/2 or vcount=grid_top+3*grid_height/4 or 
+				 hcount=grid_left+grid_width/4 or hcount=grid_left+grid_width/2 or hcount=grid_left+3*grid_width/4 or
 				 hcount=grid_left+grid_width/8 or hcount=grid_left+3*grid_width/8 or
 				 hcount=grid_left+5*grid_width/8 or hcount=grid_left+7*grid_width/8) then
 				grd_red<=b"01";            
 				grd_grn<=b"01";
 				grd_blu<=b"01";
-			elsif vcount>=grid_top and vcount<=grid_bottom and hcount>=grid_left and hcount<=grid_right and 
-				(vcount=grid_top or vcount=grid_top+grid_height/2 or vcount=grid_bottom or 
-				 hcount=grid_left or hcount=grid_left+grid_width/2 or hcount=grid_right) then
-				grd_red<=b"10";
-				grd_grn<=b"10";
-				grd_blu<=b"10";
             else
                 grd_red<=b"00";            
                 grd_grn<=b"00";
@@ -708,16 +708,16 @@ begin
 			end if;
 			-- Draw Trigger line
 			scaled_trig <= grid_top+grid_height-lvl/ratio;
-			if vcount>=grid_top and vcount<=grid_bottom and hcount>=grid_left and hcount<=grid_width/8 and
-				vcount=scaled_trig then
-				trig_red<=b"01";
-				trig_grn<=b"01";
-				trig_blu<=b"11";
-			else
-				trig_red<=b"00";
-				trig_grn<=b"00";
-				trig_blu<=b"00";
-			end if;
+			-- if vcount>=grid_top and vcount<=grid_bottom and hcount>7*grid_width/8 and hcount<=grid_right and
+			-- 	vcount=scaled_trig then
+			-- 	trig_red<=b"01";
+			-- 	trig_grn<=b"01";
+			-- 	trig_blu<=b"11";
+			-- else
+			-- 	trig_red<=b"00";
+			-- 	trig_grn<=b"00";
+			-- 	trig_blu<=b"00";
+			-- end if;
         end if;
 
 		-- Make trace appear before grid and trigger line

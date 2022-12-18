@@ -24,6 +24,10 @@
 
 - `Oscilloscope` in Oscilloscope.xdc
 
+Problems
+left and right trigger concept needs work
+why compressing and stretching signal distorts reading??
+
 12/18 00:15
 /improve trigger by tracing before and after values
 /add horizontal scale

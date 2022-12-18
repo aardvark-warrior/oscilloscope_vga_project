@@ -35,9 +35,9 @@ entity Oscilliscope is
 		pio8:	in	std_logic;
 		pio7:	in	std_logic;
 		pio6:	out std_logic;
-		pio5:	in  std_logic;
-		pio4:	in  std_logic;
-		pio3:	out	std_logic
+		-- pio5:	in  std_logic;
+		-- pio4:	in  std_logic;
+		-- pio3:	out	std_logic
 	);
 end Oscilliscope;
 
@@ -131,8 +131,8 @@ architecture arch of Oscilliscope is
 	signal grid_left: 	unsigned(9 downto 0):=to_unsigned(0,10);
 	signal grid_bottom: unsigned(9 downto 0):=to_unsigned(256,10); 
 	signal grid_height: unsigned(9 downto 0):=to_unsigned(256,10);		-- TODO: (opt) Chanage height/width to constant unsigned
-	signal grid_right: 	unsigned(9 downto 0):=to_unsigned(480,10); 
-	signal grid_width: 	unsigned(9 downto 0):=to_unsigned(480,10);
+	signal grid_right: 	unsigned(9 downto 0):=to_unsigned(640,10); 
+	signal grid_width: 	unsigned(9 downto 0):=to_unsigned(640,10);
 	--Button shift registers
 	signal ud_btn_sh: 	std_logic_vector(7 downto 0):=(others=>'0'); 	-- upper 4 bits (shift up), 		lower 4 bits (shift down)
 	--TODO: lr_btn_sh:	std_logic_vector(7 downto 0):=(others=>'0');
@@ -242,6 +242,7 @@ begin
 	pio18 <= '1'; -- btns pio20,19
 	pio9  <= '1'; -- btns pio17,16
 	pio6  <= '1'; -- btns pio8,7
+	pio3  <= '1'; -- btns pio5,4
 	process(clkfx)
 	begin
 		if rising_edge(clkfx) then
@@ -412,7 +413,7 @@ begin
 						web <= (3=>rdy,others=>'0');
 						ram_led(3 downto 2) <= b"11";
 					end if;
-					-- State 3: Read 240 + h_shift values after trigger detected
+					-- State 3: Read grid_width/2 + h_shift values after trigger detected
 					if (detected = '1') then
 						if adc_loc = b"00" then
 							tr_addr0 <= tr_addr;
@@ -436,7 +437,7 @@ begin
 							tr_addr <= addrb;
 						end if;
 					end if;
-					-- State 1: Just read 240 + h_shift values (common in all 3 states, expect for when changing block RAMs)
+					-- State 1: Just read grid_width/2 + h_shift values (common in all 3 states, expect for when changing block RAMs)
 					addrb <= std_logic_vector(unsigned(addrb) + to_unsigned(1,10));
 				end if;
 			else

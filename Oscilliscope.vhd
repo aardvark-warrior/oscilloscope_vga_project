@@ -224,7 +224,7 @@ begin
     );
 
 	------------------------------------------------------------------
-	-- Button Metastability Logic
+	-- Button Metastability Shift
 		-- TODO: add debouncing
 		-- TODO: incorporate time compress to ADC-side
 		-- Basic idea:
@@ -299,7 +299,7 @@ begin
 				t_scale <= t_scale_n;
 			end if;
 
-			--Left/Right buttons--
+			--Left/Right shift buttons--
 			lr_btn_sh(4)<=pio20; -- upper 4 bits for LEFT shift button
 			lr_btn_sh(5)<=lr_btn_sh(4);
 			lr_btn_sh(6)<=lr_btn_sh(5);
@@ -318,7 +318,7 @@ begin
 				h_shift<=h_shift_n;
 			end if;
 
-			--Up/Down Buttons--
+			--Up/Down shift Buttons--
 			ud_btn_sh(4)<=pio23; -- upper 4 bits for UP shift button
 			ud_btn_sh(5)<=ud_btn_sh(4);
 			ud_btn_sh(6)<=ud_btn_sh(5);
@@ -327,17 +327,19 @@ begin
 			ud_btn_sh(2)<=ud_btn_sh(3);
 			ud_btn_sh(1)<=ud_btn_sh(2);
 			ud_btn_sh(0)<=ud_btn_sh(1); -- use bits 0,1 for edge detection
-			if ud_btn_sh(7)='0' and ud_btn_sh(6)='1' then
+			if ud_btn_sh(7)='0' and ud_btn_sh(6)='1' and
+				v_shift>to_signed(-255,12) then
 				v_shift_n<=v_shift+to_signed(-5,12);
 			end if;
-			if ud_btn_sh(0)='0' and ud_btn_sh(1)='1' then
+			if ud_btn_sh(0)='0' and ud_btn_sh(1)='1' and 
+				v_shift<to_signed(255,12) then
 				v_shift_n<=v_shift+to_signed(5,12);
 			end if;
 			if frame='1' then
 				v_shift<=v_shift_n;
 			end if;
 
-			--Vertical-scale Buttons--
+			--Amplitude-scale Buttons--
 			vs_btn_sh(4)<=btn(1); -- upper 4 bits for scale-up
 			vs_btn_sh(5)<=vs_btn_sh(4);
 			vs_btn_sh(6)<=vs_btn_sh(5);
@@ -378,7 +380,7 @@ begin
 	end process;
 
 	------------------------------------------------------------------
-	-- ADC to Buffer Chain logic
+	-- ADC Write Buffer Chain
 	------------------------------------------------------------------
 	led <= ram_led;
 	process(fclk) 
@@ -445,7 +447,7 @@ begin
 	end process;
 
 	------------------------------------------------------------------
-	-- RAM from Buffer Chain logic
+	-- RAM read from Buffer Chain 
 	------------------------------------------------------------------
 	addr_a <= ram_idx(9 downto 0); 
 	process(clkfx) -- clkfx from cmt2 25.2 MHz for VGA
@@ -498,7 +500,7 @@ begin
 	end process;
 
 	------------------------------------------------------------------
-	-- Generate output signal: square wave
+	-- Generate test signal: square wave
 	------------------------------------------------------------------
 	pio31 <= out31;
 	--Test signal 1: square wave alternate every 1040-1 counts
@@ -649,10 +651,10 @@ begin
 	end process;
 	
     ------------------------------------------------------------------
-	-- Output Trace, Trigger, Grid
+	-- Output Trace, Trigger, Grid to VGA
 	------------------------------------------------------------------
 	ratio <= 4096/grid_height;
-	scaled_trig <= grid_top+grid_height-thresh/ratio;
+	
 	process(clkfx,grd_red,grd_blu,grd_grn,line_red,line_grn,line_blu)
     begin
         if rising_edge(clkfx) then
@@ -694,6 +696,7 @@ begin
 				line_blu<=b"00";
 			end if;
 			-- Draw Trigger line
+			scaled_trig <= grid_top+grid_height-lvl/ratio;
 			if vcount>=grid_top and vcount<=grid_bottom and hcount>=grid_left and hcount<=grid_width/8 and
 				vcount=scaled_trig then
 				trig_red<=b"01";

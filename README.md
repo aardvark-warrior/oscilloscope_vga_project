@@ -24,6 +24,11 @@
 
 - `Oscilloscope` in Oscilloscope.xdc
 
+12/18 00:15
+improve trigger by tracing before and after values
+add horizontal scale
+button debounce
+
 ### **12/15/2022 15:28**
 gn_state| ... | -3 | -2 | -1 |  0 |  1 |  2 |  3 | ...
 gain    | ... | /3 | /2 | /2 | *1 | *2 | *3 | *4 | ...

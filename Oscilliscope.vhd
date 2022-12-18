@@ -6,22 +6,22 @@ use UNISIM.vcomponents.all;
 
 entity Oscilliscope is
 	port(
-		btn: in  std_logic_vector(1 downto 0);
-		led: out std_logic_vector(3 downto 0);
+		btn: 	in  std_logic_vector(1 downto 0);
+		led:	out std_logic_vector(3 downto 0);
 		--Oscilliscope
-		clk:     in  std_logic;
-		vaux5_n: in  std_logic;
-		vaux5_p: in  std_logic;
-		pio31:   out std_logic;  -- square wave signal; pin 30 detects signal (first white circle)
-		rx:      in  std_logic;
-		tx:      out std_logic;
+		clk:	in  std_logic;
+		vaux5_n:in  std_logic;
+		vaux5_p:in  std_logic;
+		pio31:  out std_logic;  -- square wave signal; pin 30 detects signal (first white circle)
+		rx:     in  std_logic;
+		tx:     out std_logic;
 		--VGA
-        tvx:   out   std_logic;
-		red:   out   std_logic_vector(1 downto 0);
-		green: out   std_logic_vector(1 downto 0);
-		blue:  out   std_logic_vector(1 downto 0);
-		hsync: out   std_logic;
-		vsync: out   std_logic;
+        tvx:   	out   std_logic;
+		red:   	out   std_logic_vector(1 downto 0);
+		green: 	out   std_logic_vector(1 downto 0);
+		blue:  	out   std_logic_vector(1 downto 0);
+		hsync: 	out   std_logic;
+		vsync: 	out   std_logic;
 		--Control buttons
 		pio23:	in	std_logic;
 		pio22:	in	std_logic;
@@ -39,18 +39,6 @@ entity Oscilliscope is
 end Oscilliscope;
 
 architecture arch of Oscilliscope is
-	-- component Oscilliscope_gui is
-	-- 	generic(
-	-- 		SAMPLES: natural
-	-- 	);
-	-- 	port(
-	-- 		clk:  in  std_logic;
-	-- 		rx:   in  std_logic;
-	-- 		tx:   out std_logic;
-	-- 		addr: out std_logic_vector(9 downto 0);
-	-- 		data: in  std_logic_vector(11 downto 0)
-	-- 	);
-	-- end component;
 	component Oscilliscope_adc is
 		port(
 			clk:     in  std_logic;
@@ -81,13 +69,11 @@ architecture arch of Oscilliscope is
 		);
 	end component;
 	--XADC--
-	-- constant samples: natural:=480;
 	signal fclk:    	std_logic;
 	signal rdy:  		std_logic;
 	signal out31: 		std_logic;
 	signal web: 		std_logic_vector(3 downto 0):= b"0000";
 	signal counter: 	unsigned(10 downto 0):= b"00000000001";		-- for generated square wave frequency
-	-- signal addra: 	std_logic_vector(9 downto 0); 	-- driven by gui
 	signal addr_a:		std_logic_vector(9 downto 0); 	-- driven by VGA hcount
 	signal dataa: 		std_logic_vector(35 downto 0); 	-- original scope reading from RAM ...
 	signal addrb: 		std_logic_vector(9 downto 0);
@@ -96,18 +82,18 @@ architecture arch of Oscilliscope is
 	signal dataa1: 		std_logic_vector(35 downto 0); 	
 	signal dataa2: 		std_logic_vector(35 downto 0); 	
 	signal dataa3: 		std_logic_vector(35 downto 0); 
-	signal adc_loc: 		unsigned(1 downto 0):=b"00";	-- track adc location in buffer chain
+	signal adc_loc: 	unsigned(1 downto 0):=b"00";	-- track adc location in buffer chain
 	signal adc_loc_n: 	unsigned(1 downto 0);
-	signal vga_loc: 		unsigned(1 downto 0):=b"00";	-- track vga location in buffer chain
+	signal vga_loc: 	unsigned(1 downto 0):=b"00";	-- track vga location in buffer chain
 	signal vga_loc_n: 	unsigned(1 downto 0);
-	signal prev_adc: 		unsigned(1 downto 0);	
+	signal prev_adc: 	unsigned(1 downto 0);	
 	--VGA--
-	signal clkfb:    std_logic;
-	signal clkfx:    std_logic;
-	signal blank:    std_logic;
-	signal frame:    std_logic;
-	signal hcount:   unsigned(9 downto 0);
-	signal vcount:   unsigned(9 downto 0);
+	signal clkfb:    	std_logic;
+	signal clkfx:    	std_logic;
+	signal blank:    	std_logic;
+	signal frame:    	std_logic;
+	signal hcount:   	unsigned(9 downto 0);
+	signal vcount:   	unsigned(9 downto 0);
 	signal grd_red:  	std_logic_vector(1 downto 0):=(others=>'0');  -- grid
 	signal grd_grn:  	std_logic_vector(1 downto 0):=(others=>'0');
 	signal grd_blu:  	std_logic_vector(1 downto 0):=(others=>'0');
@@ -117,19 +103,19 @@ architecture arch of Oscilliscope is
 	signal trig_red: 	std_logic_vector(1 downto 0):=(others=>'0');  -- trigger level indicator
 	signal trig_grn: 	std_logic_vector(1 downto 0):=(others=>'0');
 	signal trig_blu: 	std_logic_vector(1 downto 0):=(others=>'0');
-	signal screen_red: 	std_logic_vector(1 downto 0):=(others=>'0');  -- screen -> reading over grid
+	signal screen_red: 	std_logic_vector(1 downto 0):=(others=>'0');  -- screen <= reading over trigger over grid
 	signal screen_grn: 	std_logic_vector(1 downto 0):=(others=>'0');
 	signal screen_blu: 	std_logic_vector(1 downto 0):=(others=>'0');
-	--Vertical scaling/shifting--
+	--Vertical scaling/shifting
 	signal ratio: 		unsigned(9 downto 0);						-- adc_range(4096)/grid_height; 
 	signal scaled_sig:	unsigned(23 downto 0); 						-- signal after gain 
 	signal gn_state:	signed(7 downto 0):=(others=>'0');	
 	signal gn_state_n:	signed(7 downto 0):=(others=>'0');
 	signal gain:		unsigned(11 downto 0):=to_unsigned(1,12);	
-	signal gain_n:	unsigned(11 downto 0):=to_unsigned(1,12);
+	signal gain_n:		unsigned(11 downto 0):=to_unsigned(1,12);
 	signal v_shift:		signed(11 downto 0):=to_signed(0,12);
 	signal v_shift_n	:signed(11 downto 0):=to_signed(0,12);
-	--Horizontal scaling/shifting--
+	--Horizontal scaling/shifting
 	signal ram_idx:		std_logic_vector(9 downto 0);
 	signal ts_state:    signed(7 downto 0):=(others=>'0');
 	signal ts_state_n:  signed(7 downto 0):=(others=>'0');
@@ -137,43 +123,42 @@ architecture arch of Oscilliscope is
 	signal t_scale_n:   unsigned(9 downto 0):=to_unsigned(1,10);
 	signal h_shift:		signed(9 downto 0):=to_signed(0,10);
 	signal h_shift_n:	signed(9 downto 0):=to_signed(0,10);
-	--Dimensions of scope grid--
+	--Dimensions of scope grid
 	signal grid_top: 	unsigned(9 downto 0):=to_unsigned(0,10);
 	signal grid_left: 	unsigned(9 downto 0):=to_unsigned(0,10);
-	signal grid_bottom: unsigned(9 downto 0):=to_unsigned(256,10); -- 10 + (256-1)
-	signal grid_right: 	unsigned(9 downto 0):=to_unsigned(480,10); -- 10 + (330-1)
+	signal grid_bottom: unsigned(9 downto 0):=to_unsigned(256,10); 
+	signal grid_height: unsigned(9 downto 0):=to_unsigned(256,10);		-- TODO: (opt) Chanage height/width to constant unsigned
+	signal grid_right: 	unsigned(9 downto 0):=to_unsigned(480,10); 
 	signal grid_width: 	unsigned(9 downto 0):=to_unsigned(480,10);
-	signal grid_height: unsigned(9 downto 0):=to_unsigned(256,10);
-	--Button shift registers-- upper 4 bits shift from 4->7, lower 4 shift 3->0
-	signal ud_btn_sh: 	std_logic_vector(7 downto 0):=(others=>'0'); -- upper 4 bits (shift up), 		lower 4 bits (shift down)
-	signal lr_btn_sh:   std_logic_vector(7 downto 0):=(others=>'0'); -- upper 4 bits (shift left), 		lower 4 bits (shift right)
-	signal vs_btn_sh:	std_logic_vector(7 downto 0):=(others=>'0'); -- upper 4 bits (voltage scale up),lower 4 bits (scale down)
-	signal ts_btn_sh:   std_logic_vector(7 downto 0):=(others=>'0'); -- upper 4 bits (time stretch), 	lower 4 bits (time compress)
-	signal trig_btn_sh: std_logic_vector(7 downto 0):=(others=>'0');
-	signal ram_led:   	std_logic_vector(3 downto 0);
+	--Button shift registers
+	signal ud_btn_sh: 	std_logic_vector(7 downto 0):=(others=>'0'); 	-- upper 4 bits (shift up), 		lower 4 bits (shift down)
+	signal lr_btn_sh:   std_logic_vector(7 downto 0):=(others=>'0'); 	-- upper 4 bits (shift left), 		lower 4 bits (shift right)
+	signal vs_btn_sh:	std_logic_vector(7 downto 0):=(others=>'0'); 	-- upper 4 bits (voltage scale up),lower 4 bits (scale down)
+	signal ts_btn_sh:   std_logic_vector(7 downto 0):=(others=>'0'); 	-- upper 4 bits (time stretch), 	lower 4 bits (time compress)
+	signal trig_btn_sh: std_logic_vector(7 downto 0):=(others=>'0');	-- upper 4 bits (trigger up), 		lower 4 bits (trigger down)
+	signal ram_led:   	std_logic_vector(3 downto 0);	-- debugging LEDs
 	--Trigger
-	signal detected:		std_logic:='0';
-	signal fin_write:		std_logic:='0';
-	signal tr_addr:			std_logic_vector(9 downto 0);	-- ADC side of trigger takes care of h_shift
-	signal tr_addr0:		std_logic_vector(9 downto 0);	-- when read by VGA, tr_addrX already includes shift
-	signal tr_addr1:		std_logic_vector(9 downto 0);
-	signal tr_addr2:		std_logic_vector(9 downto 0);
-	signal tr_addr3:		std_logic_vector(9 downto 0);
-	signal read_addr:		std_logic_vector(9 downto 0);
-	signal read_addr_n:		std_logic_vector(9 downto 0);
-	signal lvl:				unsigned(11 downto 0):=to_unsigned(3900,12);
-	signal lvl_n:			unsigned(11 downto 0):=to_unsigned(3900,12);
-	constant lvl_inc:		unsigned(11 downto 0):=to_unsigned(48,12);
-	signal scaled_trig:		unsigned(11 downto 0);	-- scaled_tr <= grid_height - thresh/ratio;
+	signal detected:	std_logic:='0';
+	signal fin_write:	std_logic:='0';
+	signal tr_addr:		std_logic_vector(9 downto 0);	-- ADC side of trigger takes care of h_shift
+	signal tr_addr0:	std_logic_vector(9 downto 0);	-- when read by VGA, tr_addrX already includes shift
+	signal tr_addr1:	std_logic_vector(9 downto 0);
+	signal tr_addr2:	std_logic_vector(9 downto 0);
+	signal tr_addr3:	std_logic_vector(9 downto 0);
+	signal read_addr:	std_logic_vector(9 downto 0);
+	signal read_addr_n:	std_logic_vector(9 downto 0);
+	signal scaled_trig:	unsigned(11 downto 0);			-- scaled_tr <= grid_height - thresh/ratio;
+	signal lvl:			unsigned(11 downto 0):=to_unsigned(3900,12);
+	signal lvl_n:		unsigned(11 downto 0):=to_unsigned(3900,12);
+	constant lvl_inc:	unsigned(11 downto 0):=to_unsigned(48,12);
+
 
 begin
     --BEGIN WITH OSCILLISCOPE MEASUREMENT
-	-- gui:  Oscilliscope_gui generic map (SAMPLES=>samples)
-	                -- port map(clk=>clk,rx=>rx,tx=>tx,addr=>addra,data=>dataa(11 downto 0));
 	cmt:  Oscilliscope_cmt port map(clk_i=>clk,clk_o=>fclk);
 	adc:  Oscilliscope_adc port map(clk=>fclk,vaux5_n=>vaux5_n,vaux5_p=>vaux5_p,rdy=>rdy,data=>datab(11 downto 0));
 	ram0: Oscilliscope_ram port map(
-		clka_i=>clk,  		-- port A read only output to VGA
+		clka_i=>clk,  		-- port A output to VGA
 		wea_i=>'0',
 		addra_i=>addr_a, 	-- 10 bits
 		dataa_i=>(others=>'0'),

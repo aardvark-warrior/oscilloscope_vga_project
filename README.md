@@ -27,6 +27,7 @@
 Problems
 left and right trigger concept needs work
 why compressing and stretching signal distorts reading??
+make trig lvl cursor follow v_shift and gain
 
 12/18 00:15
 /improve trigger by tracing before and after values

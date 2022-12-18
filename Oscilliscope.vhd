@@ -39,18 +39,18 @@ entity Oscilliscope is
 end Oscilliscope;
 
 architecture arch of Oscilliscope is
-	component Oscilliscope_gui is
-		generic(
-			SAMPLES: natural
-		);
-		port(
-			clk:  in  std_logic;
-			rx:   in  std_logic;
-			tx:   out std_logic;
-			addr: out std_logic_vector(9 downto 0);
-			data: in  std_logic_vector(11 downto 0)
-		);
-	end component;
+	-- component Oscilliscope_gui is
+	-- 	generic(
+	-- 		SAMPLES: natural
+	-- 	);
+	-- 	port(
+	-- 		clk:  in  std_logic;
+	-- 		rx:   in  std_logic;
+	-- 		tx:   out std_logic;
+	-- 		addr: out std_logic_vector(9 downto 0);
+	-- 		data: in  std_logic_vector(11 downto 0)
+	-- 	);
+	-- end component;
 	component Oscilliscope_adc is
 		port(
 			clk:     in  std_logic;
@@ -81,13 +81,13 @@ architecture arch of Oscilliscope is
 		);
 	end component;
 	--XADC--
-	constant samples: natural:=480;
+	-- constant samples: natural:=480;
 	signal fclk:    std_logic;
 	signal rdy:  	std_logic;
 	signal out31: 	std_logic;
 	signal web: 	std_logic_vector(3 downto 0):= b"0000";
 	signal counter: unsigned(10 downto 0):= b"00000000001";		-- for generated square wave frequency
-	signal addra: 	std_logic_vector(9 downto 0); 	-- driven by gui
+	-- signal addra: 	std_logic_vector(9 downto 0); 	-- driven by gui
 	signal addr_a:	std_logic_vector(9 downto 0); 	-- driven by VGA hcount
 	signal dataa: 	std_logic_vector(35 downto 0); 	-- original scope reading from RAM ...
 	signal addrb: 	std_logic_vector(9 downto 0);
@@ -168,8 +168,8 @@ architecture arch of Oscilliscope is
 
 begin
     --BEGIN WITH OSCILLISCOPE MEASUREMENT
-	gui:  Oscilliscope_gui generic map (SAMPLES=>samples)
-	                port map(clk=>clk,rx=>rx,tx=>tx,addr=>addra,data=>dataa(11 downto 0));
+	-- gui:  Oscilliscope_gui generic map (SAMPLES=>samples)
+	                -- port map(clk=>clk,rx=>rx,tx=>tx,addr=>addra,data=>dataa(11 downto 0));
 	cmt:  Oscilliscope_cmt port map(clk_i=>clk,clk_o=>fclk);
 	adc:  Oscilliscope_adc port map(clk=>fclk,vaux5_n=>vaux5_n,vaux5_p=>vaux5_p,rdy=>rdy,data=>datab(11 downto 0));
 	ram0: Oscilliscope_ram port map(

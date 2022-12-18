@@ -24,6 +24,17 @@
 
 - `Oscilloscope` in Oscilloscope.xdc
 
+Problems
+left and right trigger concept needs work
+why compressing and stretching signal distorts reading??
+make trig lvl cursor follow v_shift and gain
+
+12/18 00:15
+/improve trigger by tracing before and after values
+/add horizontal scale
+Need 2 mors buttons to move signal horizontally
+button debounce
+
 ### **12/15/2022 15:28**
 gn_state| ... | -3 | -2 | -1 |  0 |  1 |  2 |  3 | ...
 gain    | ... | /3 | /2 | /2 | *1 | *2 | *3 | *4 | ...

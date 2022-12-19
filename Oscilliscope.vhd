@@ -624,14 +624,12 @@ begin
 					end if;
 					-- ADC State 1
 					if (wr_state=b"00") then
-						-- addrb <= std_logic_vector(unsigned(addrb) + to_unsigned(1,10));
 						if addrb=std_logic_vector(tr_h) then
 							pretrig <= datab(11 downto 0);
 							wr_state<=b"01";
 						end if;
 					-- ADC State 2
 					elsif (wr_state=b"01") then
-						-- addrb <= std_logic_vector(unsigned(addrb) + to_unsigned(1,10));
 						if (unsigned(datab(11 downto 0)) >= lvl) and 
 							(unsigned(pretrig) < lvl) then	
 							init <= '0';
@@ -643,16 +641,15 @@ begin
 						end if;
 					-- ADC State 3
 					elsif (wr_state=b"10") then
-						-- addrb <= std_logic_vector(unsigned(addrb) + to_unsigned(1,10));
 						-- Save trigger address in the signal corresponding to the current RAM
 						if adc_loc = b"00" then
-							tr_addr0 <= tr_addr;
+							tr_addr0 <= std_logic_vector(unsigned(tr_addr-tr_h));
 						elsif adc_loc = b"01" then
-							tr_addr1 <= tr_addr;
+							tr_addr1 <= std_logic_vector(unsigned(tr_addr-tr_h));
 						elsif adc_loc = b"10" then
-							tr_addr2 <= tr_addr;
+							tr_addr2 <= std_logic_vector(unsigned(tr_addr-tr_h));
 						else
-							tr_addr3 <= tr_addr;
+							tr_addr3 <= std_logic_vector(unsigned(tr_addr-tr_h));
 						end if;
 					end if;
 					-- -- State 3: Read grid_width/2 + h_shift values after trigger detected
@@ -723,7 +720,7 @@ begin
 				end if;
 			--In the same frame, index to RAM using VGA starting address + hcount
 			else
-				ram_idx(9 downto 0) <= std_logic_vector(signed(unsigned(read_addr)+hcount)+hshift);
+				ram_idx(9 downto 0) <= std_logic_vector(signed(unsigned(read_addr)+hcount)-hshift);
 				if vga_loc=to_unsigned(0,2) then
 					dataa <= dataa0;
 					ram_led(1 downto 0) <= b"00";

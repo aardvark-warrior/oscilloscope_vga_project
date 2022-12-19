@@ -159,6 +159,7 @@ architecture arch of Oscilliscope is
 	signal b0_cnt:		unsigned(20 downto 0):=to_unsigned(0,21);
 	--Trigger
 	constant lvl_step:	unsigned(11 downto 0):=to_unsigned(128,12);
+	signal wr_state:	unsigned(1 downto 0):=to_unsigned(0,2);
 	signal detected:	std_logic:='0';
 	signal init:		std_logic:='1';
 	signal pretrig:		std_logic_vector(11 downto 0);
@@ -172,8 +173,8 @@ architecture arch of Oscilliscope is
 	signal scaled_trig:	unsigned(11 downto 0);			-- scaled_tr <= grid_height - thresh/ratio;
 	signal lvl:			unsigned(11 downto 0):=to_unsigned(3900,12);
 	signal lvl_n:		unsigned(11 downto 0):=to_unsigned(3900,12);
-	signal tr_h_shift:	signed(9 downto 0):=to_signed(0,10);
-	signal tr_h_shift_n:signed(9 downto 0):=to_signed(0,10);
+	signal tr_h:		unsigned(9 downto 0):=to_unsigned(320,10);
+	signal tr_h_n:		unsigned(9 downto 0):=to_unsigned(320,10);
 
 begin
     --BEGIN WITH OSCILLISCOPE MEASUREMENT
@@ -378,8 +379,8 @@ begin
 					if b20_f='1' then
 						b20_f<='0';
 						--Trigger left/right (toggle='1') or Signal left/right (toggle='0')
-						if toggle='1' and (tr_h_shift > to_signed(5,10)-signed(grid_width/2)) then
-							tr_h_shift_n<=tr_h_shift+to_signed(-5,10);
+						if toggle='1' and (tr_h > to_unsigned(5,10)) then
+							tr_h_n<=tr_h-to_unsigned(5,10);
 						elsif toggle='0' then
 							hshift_n<=hshift+to_signed(-5,10);
 						end if;
@@ -408,8 +409,8 @@ begin
 					if b19_f='1' then
 						b19_f<='0';
 						--Trigger left/right (toggle='1') or Signal left/right (toggle='0')
-						if toggle='1' and (tr_h_shift < to_signed(-5,10)+signed(grid_width/2)) then
-							tr_h_shift_n<=tr_h_shift+to_signed(5,10);
+						if toggle='1' and (tr_h < grid_left-to_unsigned(6,10)) then
+							tr_h_n<=tr_h+to_unsigned(5,10);
 						elsif toggle='0' then
 							hshift_n<=hshift+to_signed(5,10);
 						end if;
@@ -426,7 +427,7 @@ begin
 			end if;
 			if frame='1' then
 				if toggle='1' then
-					tr_h_shift<=tr_h_shift_n;
+					tr_h<=tr_h_n;
 				else
 					hshift<=hshift_n;
 				end if;
@@ -580,10 +581,11 @@ begin
 		if rising_edge(fclk) then -- fclk from cmt 52 MHz for ADC; rdy is synced with fclk
 			if rdy='1' then
 				-- Transition from State 3->1: Save last-used RAM, Move to next RAM, Reset addrb and detected flag
-				if (addrb = std_logic_vector(signed(unsigned(tr_addr) - grid_width/2) + tr_h_shift))  and detected = '1' then
+				if (addrb = std_logic_vector(unsigned(tr_addr) - tr_h - 1))  and detected = '1' then
 					prev_adc <= adc_loc;
 					adc_loc <= adc_loc_n;
 					addrb <= b"00_0000_0000";
+					wr_state<=b"00";
 					detected <= '0';
 					if adc_loc_n = b"00" then
 						web <= (0=>rdy,others=>'0');
@@ -608,8 +610,29 @@ begin
 						web <= (3=>rdy,others=>'0');
 						ram_led(3 downto 2) <= b"11";
 					end if;
-					-- State 3: Read grid_width/2 + h_shift values after trigger detected
-					if (detected = '1') then
+					-- ADC State 1
+					if (wr_state=b"00") then
+						addrb <= std_logic_vector(unsigned(addrb) + to_unsigned(1,10));
+						if addrb=std_logic_vector(tr_h) then
+							pretrig <= datab(11 downto 0);
+							wr_state<=b"01";
+						end if;
+					-- ADC State 2
+					elsif (wr_state=b"01") then
+						addrb <= std_logic_vector(unsigned(addrb) + to_unsigned(1,10));
+						if (unsigned(datab(11 downto 0)) >= lvl) and 
+							(unsigned(datab(11 downto 0)) > unsigned(pretrig)) then	
+							init <= '0';
+							detected <= '1';
+							wr_state<=b"10";
+							tr_addr <= addrb;
+						else 
+							pretrig <= datab(11 downto 0);
+						end if;
+					-- ADC State 3
+					elsif (wr_state=b"10") then
+						addrb <= std_logic_vector(unsigned(addrb) + to_unsigned(1,10));
+						-- Save trigger address in the signal corresponding to the current RAM
 						if adc_loc = b"00" then
 							tr_addr0 <= tr_addr;
 						elsif adc_loc = b"01" then
@@ -619,21 +642,33 @@ begin
 						else
 							tr_addr3 <= tr_addr;
 						end if;
-					-- State 2: Waiting for trigger (after reading 240 + h_shift initial values)
-					elsif (signed(addrb) >= signed(grid_width/2) + tr_h_shift) then		
-						if (signed(addrb) = signed(grid_width/2) + tr_h_shift) then		
-							pretrig <= datab(11 downto 0);
-						end if;
-						-- rising edge trigger
-						if (unsigned(datab(11 downto 0)) >= lvl) and 
-							(unsigned(datab(11 downto 0)) > unsigned(pretrig)) then	
-							init <= '0';
-							detected <= '1';
-							tr_addr <= addrb;
-						end if;
 					end if;
-					-- State 1: Just read grid_width/2 + h_shift values (common in all 3 states, expect for when changing block RAMs)
-					addrb <= std_logic_vector(unsigned(addrb) + to_unsigned(1,10));
+					-- -- State 3: Read grid_width/2 + h_shift values after trigger detected
+					-- if (detected = '1') then
+					-- 	if adc_loc = b"00" then
+					-- 		tr_addr0 <= tr_addr;
+					-- 	elsif adc_loc = b"01" then
+					-- 		tr_addr1 <= tr_addr;
+					-- 	elsif adc_loc = b"10" then
+					-- 		tr_addr2 <= tr_addr;
+					-- 	else
+					-- 		tr_addr3 <= tr_addr;
+					-- 	end if;
+					-- -- State 2: Waiting for trigger (after reading 240 + h_shift initial values)
+					-- elsif (signed(addrb) >= signed(grid_width/2) + tr_h) then		
+					-- 	if (signed(addrb) = signed(grid_width/2) + tr_h) then		
+					-- 		pretrig <= datab(11 downto 0);
+					-- 	end if;
+					-- 	-- rising edge trigger
+					-- 	if (unsigned(datab(11 downto 0)) >= lvl) and 
+					-- 		(unsigned(datab(11 downto 0)) > unsigned(pretrig)) then	
+					-- 		init <= '0';
+					-- 		detected <= '1';
+					-- 		tr_addr <= addrb;
+					-- 	end if;
+					-- end if;
+					-- -- State 1: Just read grid_width/2 + h_shift values (common in all 3 states, expect for when changing block RAMs)
+					-- addrb <= std_logic_vector(unsigned(addrb) + to_unsigned(1,10));
 				end if;
 			else
 				web <= b"0000";
@@ -651,13 +686,13 @@ begin
 		vga_loc_n <= prev_adc;
 		--Set addr to start reading at for next RAM
 		if prev_adc=b"00" then
-			read_addr_n <= std_logic_vector(unsigned(tr_addr0)-grid_width/2);
+			read_addr_n <= tr_addr0;
 		elsif prev_adc=b"01" then
-			read_addr_n <= std_logic_vector(unsigned(tr_addr1)-grid_width/2);
+			read_addr_n <= tr_addr1;
 		elsif prev_adc=b"10" then
-			read_addr_n <= std_logic_vector(unsigned(tr_addr2)-grid_width/2);
+			read_addr_n <= tr_addr2;
 		else
-			read_addr_n <= std_logic_vector(unsigned(tr_addr3)-grid_width/2);
+			read_addr_n <= tr_addr3;
 		end if;
 
 		if rising_edge(clkfx) then
@@ -676,7 +711,7 @@ begin
 				end if;
 			--In the same frame, index to RAM using VGA starting address + hcount
 			else
-				ram_idx <= std_logic_vector(signed(unsigned(read_addr)+hcount*t_scale));
+				ram_idx <= std_logic_vector(signed(unsigned(read_addr)+hcount));
 				if vga_loc=to_unsigned(0,2) then
 					dataa <= dataa0;
 					ram_led(1 downto 0) <= b"00";
@@ -856,7 +891,7 @@ begin
 			-- Draw grid
 			if vcount>=grid_top and vcount<=grid_bottom and hcount>=grid_left and hcount<=grid_right and 
 				(vcount=grid_top or vcount=scaled_trig or vcount=grid_bottom or --grid_top+grid_height/2
-				 hcount=grid_left or hcount=unsigned(signed(grid_left+grid_width/2)+tr_h_shift) or hcount=grid_right) then
+				 hcount=grid_left or hcount=unsigned(grid_left+tr_h) or hcount=grid_right) then
 				grd_red<=b"10";
 				grd_grn<=b"10";
 				grd_blu<=b"10";

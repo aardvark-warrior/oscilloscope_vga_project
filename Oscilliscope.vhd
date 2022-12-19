@@ -73,7 +73,7 @@ architecture arch of Oscilliscope is
 	signal rdy:  		std_logic;
 	signal out31: 		std_logic;
 	signal web: 		std_logic_vector(3 downto 0):= b"0000";
-	signal counter: 	unsigned(10 downto 0):= b"00000000001";		-- for generated square wave frequency
+	signal counter: 	unsigned(13 downto 0):=(0=>'1',others=>'0');		-- for generated square wave frequency
 	signal addr_a:		std_logic_vector(9 downto 0); 	-- driven by VGA hcount
 	signal dataa: 		std_logic_vector(35 downto 0); 	-- original scope reading from RAM ...
 	signal addrb: 		std_logic_vector(9 downto 0);
@@ -121,6 +121,9 @@ architecture arch of Oscilliscope is
 	signal hshift_n:	signed(9 downto 0):=to_signed(0,10);
 	signal t_scale:		unsigned(9 downto 0):=to_unsigned(1,10);
 	signal t_scale_n:   unsigned(9 downto 0):=to_unsigned(1,10);
+	signal skip_cnt_cur:unsigned(9 downto 0):=to_unsigned(0,10);
+	signal skip_cnt:	unsigned(9 downto 0):=to_unsigned(0,10);
+	signal skip_cnt_n:	unsigned(9 downto 0):=to_unsigned(0,10);
 	--Scope grid dimensions
 	signal grid_top: 	unsigned(9 downto 0):=to_unsigned(0,10);
 	signal grid_left: 	unsigned(9 downto 0):=to_unsigned(0,10);
@@ -170,7 +173,7 @@ architecture arch of Oscilliscope is
 	signal tr_addr3:	std_logic_vector(9 downto 0);
 	signal read_addr:	std_logic_vector(9 downto 0);
 	signal read_addr_n:	std_logic_vector(9 downto 0);
-	signal scaled_trig:	unsigned(11 downto 0);			-- scaled_tr <= grid_height - thresh/ratio;
+	signal scaled_trig:	unsigned(23 downto 0);			-- scaled_tr <= grid_height - thresh/ratio;
 	signal lvl:			unsigned(11 downto 0):=to_unsigned(3900,12);
 	signal lvl_n:		unsigned(11 downto 0):=to_unsigned(3900,12);
 	signal tr_h:		unsigned(9 downto 0):=to_unsigned(320,10);
@@ -569,6 +572,7 @@ begin
 	-- ADC Write Buffer Chain
 	------------------------------------------------------------------
 	led <= ram_led;
+	skip_cnt_n <= t_scale - 1;
 	process(fclk,adc_loc,vga_loc) 
 	begin
 		-- Select next ram in buffer chain, skipping vga_loc
@@ -581,12 +585,13 @@ begin
 		if rising_edge(fclk) then -- fclk from cmt 52 MHz for ADC; rdy is synced with fclk
 			if rdy='1' then
 				-- Transition from State 3->1: Save last-used RAM, Move to next RAM, Reset addrb and detected flag
-				if (addrb = std_logic_vector(unsigned(tr_addr) - tr_h - 1))  and detected = '1' then
+				if (addrb = std_logic_vector(unsigned(tr_addr) - tr_h))  and detected = '1' then
 					prev_adc <= adc_loc;
 					adc_loc <= adc_loc_n;
 					addrb <= b"00_0000_0000";
 					wr_state<=b"00";
 					detected <= '0';
+					skip_cnt_cur <= skip_cnt_n;
 					if adc_loc_n = b"00" then
 						web <= (0=>rdy,others=>'0');
 					elsif adc_loc_n = b"01" then
@@ -597,31 +602,38 @@ begin
 						web <= (3=>rdy,others=>'0');
 					end if;
 				else
-					if adc_loc = b"00" then
-						web <= (0=>rdy,others=>'0');
-						ram_led(3 downto 2) <= b"00";
-					elsif adc_loc = b"01" then
-						web <= (1=>rdy,others=>'0');
-						ram_led(3 downto 2) <= b"01";
-					elsif adc_loc = b"10" then
-						web <= (2=>rdy,others=>'0');
-						ram_led(3 downto 2) <= b"10";
+					if (skip_cnt = b"00") then
+						skip_cnt <= skip_cnt_cur;
+						addrb <= std_logic_vector(unsigned(addrb) + to_unsigned(1,10));
+						if adc_loc = b"00" then
+							web <= (0=>rdy,others=>'0');
+							ram_led(3 downto 2) <= b"00";
+						elsif adc_loc = b"01" then
+							web <= (1=>rdy,others=>'0');
+							ram_led(3 downto 2) <= b"01";
+						elsif adc_loc = b"10" then
+							web <= (2=>rdy,others=>'0');
+							ram_led(3 downto 2) <= b"10";
+						else
+							web <= (3=>rdy,others=>'0');
+							ram_led(3 downto 2) <= b"11";
+						end if;
 					else
-						web <= (3=>rdy,others=>'0');
-						ram_led(3 downto 2) <= b"11";
+						skip_cnt <= skip_cnt - 1;
+						web <= b"0000";
 					end if;
 					-- ADC State 1
 					if (wr_state=b"00") then
-						addrb <= std_logic_vector(unsigned(addrb) + to_unsigned(1,10));
+						-- addrb <= std_logic_vector(unsigned(addrb) + to_unsigned(1,10));
 						if addrb=std_logic_vector(tr_h) then
 							pretrig <= datab(11 downto 0);
 							wr_state<=b"01";
 						end if;
 					-- ADC State 2
 					elsif (wr_state=b"01") then
-						addrb <= std_logic_vector(unsigned(addrb) + to_unsigned(1,10));
+						-- addrb <= std_logic_vector(unsigned(addrb) + to_unsigned(1,10));
 						if (unsigned(datab(11 downto 0)) >= lvl) and 
-							(unsigned(datab(11 downto 0)) > unsigned(pretrig)) then	
+							(unsigned(pretrig) < lvl) then	
 							init <= '0';
 							detected <= '1';
 							wr_state<=b"10";
@@ -631,7 +643,7 @@ begin
 						end if;
 					-- ADC State 3
 					elsif (wr_state=b"10") then
-						addrb <= std_logic_vector(unsigned(addrb) + to_unsigned(1,10));
+						-- addrb <= std_logic_vector(unsigned(addrb) + to_unsigned(1,10));
 						-- Save trigger address in the signal corresponding to the current RAM
 						if adc_loc = b"00" then
 							tr_addr0 <= tr_addr;
@@ -679,7 +691,7 @@ begin
 	------------------------------------------------------------------
 	-- VGA read from Buffer Chain 
 	------------------------------------------------------------------
-	addr_a <= std_logic_vector(signed(ram_idx(9 downto 0))+hshift); 
+	addr_a <= ram_idx(9 downto 0); 
 	process(clkfx,prev_adc,tr_addr0,tr_addr1,tr_addr2,tr_addr3) -- clkfx from cmt2 25.2 MHz for VGA
 	begin
 		--Set next vga_loc to last RAM used by ADC
@@ -711,7 +723,7 @@ begin
 				end if;
 			--In the same frame, index to RAM using VGA starting address + hcount
 			else
-				ram_idx(9 downto 0) <= std_logic_vector(signed(unsigned(read_addr)+hcount));
+				ram_idx(9 downto 0) <= std_logic_vector(signed(unsigned(read_addr)+hcount)+hshift);
 				if vga_loc=to_unsigned(0,2) then
 					dataa <= dataa0;
 					ram_led(1 downto 0) <= b"00";
@@ -888,14 +900,22 @@ begin
 	process(clkfx,grd_red,grd_blu,grd_grn,line_red,line_grn,line_blu)
     begin
         if rising_edge(clkfx) then
-			-- Draw grid
+			-- Scale Trigger line
+			scaled_trig <= grid_top+grid_height - gain*lvl/ratio;
+			-- Draw Trigger
 			if vcount>=grid_top and vcount<=grid_bottom and hcount>=grid_left and hcount<=grid_right and 
-				(vcount=grid_top or vcount=scaled_trig or vcount=grid_bottom or --grid_top+grid_height/2
-				 hcount=grid_left or hcount=unsigned(grid_left+tr_h) or hcount=grid_right) then
-				grd_red<=b"10";
-				grd_grn<=b"10";
-				grd_blu<=b"10";
-            elsif vcount>=grid_top and vcount<=grid_bottom and hcount>=grid_left and hcount<=grid_right and
+				(vcount=grid_top or vcount=unsigned(signed(scaled_trig)+vshift) or vcount=grid_bottom or 
+				 hcount=grid_left or hcount=unsigned(signed(grid_left+tr_h)+hshift) or hcount=grid_right) then
+				trig_red<=b"10";
+				trig_grn<=b"10";
+				trig_blu<=b"10";
+			else
+				trig_red<=b"00";
+				trig_grn<=b"00";
+				trig_blu<=b"00";
+			end if;
+			-- Draw Grid
+            if vcount>=grid_top and vcount<=grid_bottom and hcount>=grid_left and hcount<=grid_right and
 				(vcount=grid_top+grid_height/4 or vcount=grid_top+grid_height/2 or vcount=grid_top+3*grid_height/4 or 
 				 hcount=grid_left+grid_width/4 or hcount=grid_left+grid_width/2 or hcount=grid_left+3*grid_width/4 or
 				 hcount=grid_left+grid_width/8 or hcount=grid_left+3*grid_width/8 or
@@ -908,12 +928,13 @@ begin
                 grd_grn<=b"00";
                 grd_blu<=b"00";
             end if;
-			-- Draw signal
+			-- Scale Signal
 			if gn_state>=to_signed(0,8) then
 				scaled_sig <= grid_top+grid_height- gain*unsigned(dataa(11 downto 0))/ratio;
 			else
 				scaled_sig(11 downto 0) <= grid_top+grid_height- unsigned(dataa(11 downto 0))/ratio/gain;
 			end if;
+			-- Draw signal
             if init='0' and 
 				vcount>=grid_top and vcount<=grid_bottom and hcount>=grid_left and hcount<=grid_right and
 				vcount=unsigned(signed(scaled_sig)+vshift) then	--unsigned(dataa(11 downto 0))/(4096/grid-height)
@@ -925,26 +946,23 @@ begin
 				line_grn<=b"00";
 				line_blu<=b"00";
 			end if;
-			-- Scale Trigger line
-			scaled_trig <= grid_top+grid_height-lvl/ratio;
         end if;
 
 		-- Make trace appear before grid and trigger line
-		if (line_red=b"00" and line_grn=b"00" and line_blu=b"00") then
-			if (trig_red=b"00" and trig_grn=b"00" and trig_blu=b"00") then
+		if (trig_red=b"00" and trig_grn=b"00" and trig_blu=b"00") then
+			if (line_red=b"00" and line_grn=b"00" and line_blu=b"00") then
 				screen_red <= grd_red;
 				screen_grn <= grd_grn;
 				screen_blu <= grd_blu;
 			else
-				screen_red <= trig_red;
-				screen_grn <= trig_grn;
-				screen_blu <= trig_blu;
+				screen_red <= line_red;
+				screen_grn <= line_grn;
+				screen_blu <= line_blu;
 			end if;
 		else
-			
-			screen_red <= line_red;
-			screen_grn <= line_grn;
-			screen_blu <= line_blu;
+			screen_red <= trig_red;
+			screen_grn <= trig_grn;
+			screen_blu <= trig_blu;
 		end if;
     end process;
 

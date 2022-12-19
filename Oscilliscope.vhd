@@ -145,6 +145,8 @@ architecture arch of Oscilliscope is
 	signal b16_f:		std_logic:='1';
 	signal b8_f:		std_logic:='1';
 	signal b7_f:		std_logic:='1';
+	signal b1_f:		std_logic:='1';
+	signal b0_f:		std_logic:='1';
 	signal b23_cnt:		unsigned(20 downto 0):=to_unsigned(0,21);
 	signal b22_cnt:		unsigned(20 downto 0):=to_unsigned(0,21);
 	signal b20_cnt:		unsigned(20 downto 0):=to_unsigned(0,21);
@@ -153,6 +155,8 @@ architecture arch of Oscilliscope is
 	signal b16_cnt:		unsigned(20 downto 0):=to_unsigned(0,21);
 	signal b8_cnt:		unsigned(20 downto 0):=to_unsigned(0,21);
 	signal b7_cnt:		unsigned(20 downto 0):=to_unsigned(0,21);
+	signal b1_cnt:		unsigned(20 downto 0):=to_unsigned(0,21);
+	signal b0_cnt:		unsigned(20 downto 0):=to_unsigned(0,21);
 	--Trigger
 	constant lvl_step:	unsigned(11 downto 0):=to_unsigned(128,12);
 	signal detected:	std_logic:='0';
@@ -250,46 +254,109 @@ begin
 	process(clkfx)
 	begin
 		if rising_edge(clkfx) then
+			--Toggle b8,7 and b20,19 functions			
 			--btn8
+			-- Metastability shift register
 			tog_btn_sh(4)<=pio8;
 			tog_btn_sh(5)<=tog_btn_sh(4);
 			tog_btn_sh(6)<=tog_btn_sh(5);
 			tog_btn_sh(7)<=tog_btn_sh(6);
+			-- Saturation counter
+			if (tog_btn_sh(7)='1') then
+					if b8_cnt/=to_unsigned(300000,21) then
+						b8_cnt <= b8_cnt + 1;
+					else
+						if b8_f='1' then
+							b8_f<='0';
+							toggle <= '1';
+						end if;
+					end if;
+			else
+					if (b8_cnt/=to_unsigned(0,21)) then
+						b8_cnt<=b8_cnt-1;
+					else
+						if b8_f='0' then
+							b8_f<='1';
+						end if;
+					end if;
+			end if;
 			--btn7
 			tog_btn_sh(3)<=pio7;
 			tog_btn_sh(2)<=tog_btn_sh(3);
 			tog_btn_sh(1)<=tog_btn_sh(2);
 			tog_btn_sh(0)<=tog_btn_sh(1);
-			--Toggle b8,7 and b20,19 functions
-			if tog_btn_sh(7)='0' and tog_btn_sh(6)='1' then
-				toggle <= '1';
-			end if;
-			if tog_btn_sh(0)='0' and tog_btn_sh(1)='1' then
-				toggle <= '0';
+			if (tog_btn_sh(0)='1') then
+				if b7_cnt/=to_unsigned(300000,21) then
+					b7_cnt <= b7_cnt + 1;
+				else
+					if b7_f='1' then
+						b7_f<='0';
+						toggle <= '0';
+					end if;
+				end if;
+			else
+				if (b7_cnt/=to_unsigned(0,21)) then
+					b7_cnt<=b7_cnt-1;
+				else
+					if b7_f='0' then
+						b7_f<='1';
+					end if;
+				end if;
 			end if;
 			--btn17
 			tr_ts_btn_sh(4)<=pio17;
 			tr_ts_btn_sh(5)<=tr_ts_btn_sh(4);
 			tr_ts_btn_sh(6)<=tr_ts_btn_sh(5);
 			tr_ts_btn_sh(7)<=tr_ts_btn_sh(6);
+			if (tr_ts_btn_sh(7)='1') then
+				if b17_cnt/=to_unsigned(300000,21) then
+					b17_cnt <= b17_cnt + 1;
+				else
+					if b17_f='1' then
+						b17_f<='0';
+						--Trigger up/down (toggle='1') or Time-scale (toggle='0')
+						if toggle='1' and lvl<=to_unsigned(4095,12)-lvl_step then
+							lvl_n <= lvl + lvl_step;
+						elsif toggle='0' and t_scale < 5 then
+							t_scale_n <= t_scale + 1;
+						end if;
+					end if;
+				end if;
+			else
+				if (b17_cnt/=to_unsigned(0,21)) then
+					b17_cnt<=b17_cnt-1;
+				else
+					if b17_f='0' then
+						b17_f<='1';
+					end if;
+				end if;
+			end if;
 			--btn16
 			tr_ts_btn_sh(3)<=pio16;
 			tr_ts_btn_sh(2)<=tr_ts_btn_sh(3);
 			tr_ts_btn_sh(1)<=tr_ts_btn_sh(2);
 			tr_ts_btn_sh(0)<=tr_ts_btn_sh(1);
-			--Trigger up/down (toggle='1') or Time-scale (toggle='0')
-			if tr_ts_btn_sh(7)='0' and tr_ts_btn_sh(6)='1' then
-				if toggle='1' and lvl<=to_unsigned(4095,12)-lvl_step then
-					lvl_n <= lvl + lvl_step;
-				elsif toggle='0' and t_scale < 5 then
-					t_scale_n <= t_scale + 1;
+			if (tr_ts_btn_sh(0)='1') then
+				if b16_cnt/=to_unsigned(300000,21) then
+					b16_cnt <= b16_cnt + 1;
+				else
+					if b16_f='1' then
+						b16_f<='0';
+						--Trigger up/down (toggle='1') or Time-scale (toggle='0')
+						if toggle='1' and lvl>=to_unsigned(0,12)+lvl_step then
+							lvl_n <= lvl - lvl_step;
+						elsif toggle='0' and t_scale > 1 then
+							t_scale_n <= t_scale - 1;
+						end if;
+					end if;
 				end if;
-			end if;
-			if tr_ts_btn_sh(0)='0' and tr_ts_btn_sh(1)='1' then
-				if toggle='1' and lvl>=to_unsigned(0,12)+lvl_step then
-					lvl_n <= lvl - lvl_step;
-				elsif toggle='0' and t_scale > 1 then
-					t_scale_n <= t_scale - 1;
+			else
+				if (b16_cnt/=to_unsigned(0,21)) then
+					b16_cnt<=b16_cnt-1;
+				else
+					if b16_f='0' then
+						b16_f<='1';
+					end if;
 				end if;
 			end if;
 			if frame='1' then
@@ -304,24 +371,57 @@ begin
 			lr_btn_sh(5)<=lr_btn_sh(4);
 			lr_btn_sh(6)<=lr_btn_sh(5);
 			lr_btn_sh(7)<=lr_btn_sh(6);
+			if (lr_btn_sh(7)='1') then
+				if b20_cnt/=to_unsigned(300000,21) then
+					b20_cnt <= b20_cnt + 1;
+				else
+					if b20_f='1' then
+						b20_f<='0';
+						--Trigger left/right (toggle='1') or Signal left/right (toggle='0')
+						if toggle='1' and (tr_h_shift > to_signed(5,10)-signed(grid_width/2)) then
+							tr_h_shift_n<=tr_h_shift+to_signed(-5,10);
+						elsif toggle='0' then
+							hshift_n<=hshift+to_signed(-5,10);
+						end if;
+					end if;
+				end if;
+			else
+				if (b20_cnt/=to_unsigned(0,21)) then
+					b20_cnt<=b20_cnt-1;
+				else
+					if b20_f='0' then
+						b20_f<='1';
+					end if;
+				end if;
+			end if;
+
+
 			--btn19
 			lr_btn_sh(3)<=pio19;
 			lr_btn_sh(2)<=lr_btn_sh(3);
 			lr_btn_sh(1)<=lr_btn_sh(2);
 			lr_btn_sh(0)<=lr_btn_sh(1);
-			--Trigger left/right (toggle='1') or Signal left/right (toggle='0')
-			if lr_btn_sh(7)='0' and lr_btn_sh(6)='1' then
-				if toggle='1' and (tr_h_shift > to_signed(5,10)-signed(grid_width/2)) then
-					tr_h_shift_n<=tr_h_shift+to_signed(-5,10);
-				elsif toggle='0' then
-					hshift_n<=hshift+to_signed(-5,10);
+			if (lr_btn_sh(0)='1') then
+				if b19_cnt/=to_unsigned(300000,21) then
+					b19_cnt <= b19_cnt + 1;
+				else
+					if b19_f='1' then
+						b19_f<='0';
+						--Trigger left/right (toggle='1') or Signal left/right (toggle='0')
+						if toggle='1' and (tr_h_shift < to_signed(-5,10)+signed(grid_width/2)) then
+							tr_h_shift_n<=tr_h_shift+to_signed(5,10);
+						elsif toggle='0' then
+							hshift_n<=hshift+to_signed(5,10);
+						end if;
+					end if;
 				end if;
-			end if;
-			if lr_btn_sh(0)='0' and lr_btn_sh(1)='1' then
-				if toggle='1' and (tr_h_shift < to_signed(-5,10)+signed(grid_width/2)) then
-					tr_h_shift_n<=tr_h_shift+to_signed(5,10);
-				elsif toggle='0' then
-					hshift_n<=hshift+to_signed(5,10);
+			else
+				if (b19_cnt/=to_unsigned(0,21)) then
+					b19_cnt<=b19_cnt-1;
+				else
+					if b19_f='0' then
+						b19_f<='1';
+					end if;
 				end if;
 			end if;
 			if frame='1' then
@@ -335,61 +435,126 @@ begin
 			------------------------------------------------------------
 			-- DO NOT TOUCH BELOW (Chris: ignore this. Add debounce pls)
 			------------------------------------------------------------
+			--Up/Down shift--
 			--btn23
 			ud_btn_sh(4)<=pio23; 
 			ud_btn_sh(5)<=ud_btn_sh(4);
 			ud_btn_sh(6)<=ud_btn_sh(5);
 			ud_btn_sh(7)<=ud_btn_sh(6); 
+			if (ud_btn_sh(7)='1') then
+				if b23_cnt/=to_unsigned(300000,21) then
+					b23_cnt <= b23_cnt + 1;
+				else
+					if b23_f='1' then
+						b23_f<='0';
+						if vshift>to_signed(-255,12) then
+							vshift_n<=vshift+to_signed(-5,12);
+						end if;
+					end if;
+				end if;
+			else
+				if (b23_cnt/=to_unsigned(0,21)) then
+					b23_cnt<=b23_cnt-1;
+				else
+					if b23_f='0' then
+						b23_f<='1';
+					end if;
+				end if;
+			end if;
+			
 			--btn22
 			ud_btn_sh(3)<=pio22; 
 			ud_btn_sh(2)<=ud_btn_sh(3);
 			ud_btn_sh(1)<=ud_btn_sh(2);
 			ud_btn_sh(0)<=ud_btn_sh(1); 
+			if (ud_btn_sh(0)='1') then
+				if b22_cnt/=to_unsigned(300000,21) then
+					b22_cnt <= b22_cnt + 1;
+				else
+					if b22_f='1' then
+						b22_f<='0';
+						if vshift<to_signed(255,12) then
+							vshift_n<=vshift+to_signed(5,12);
+						end if;
+					end if;
+				end if;
+			else
+				if (b22_cnt/=to_unsigned(0,21)) then
+					b22_cnt<=b22_cnt-1;
+				else
+					if b22_f='0' then
+						b22_f<='1';
+					end if;
+				end if;
+			end if;
 			--Up/Down shift--
-			if ud_btn_sh(7)='0' and ud_btn_sh(6)='1' and
-				vshift>to_signed(-255,12) then
-				vshift_n<=vshift+to_signed(-5,12);
-			end if;
-			if ud_btn_sh(0)='0' and ud_btn_sh(1)='1' and 
-				vshift<to_signed(255,12) then
-				vshift_n<=vshift+to_signed(5,12);
-			end if;
 			if frame='1' then
 				vshift<=vshift_n;
 			end if;
+
+			--Amplitude-scale--
 			--btn1 (onboard)
 			vs_btn_sh(4)<=btn(1); 
 			vs_btn_sh(5)<=vs_btn_sh(4);
 			vs_btn_sh(6)<=vs_btn_sh(5);
 			vs_btn_sh(7)<=vs_btn_sh(6);
+			if (vs_btn_sh(7)='1') then
+				if b1_cnt/=to_unsigned(300000,21) then
+					b1_cnt <= b1_cnt + 1;
+				else
+					if b1_f='1' then
+						b1_f<='0';
+						gn_state_n <= gn_state+1;
+						if gn_state<to_signed(0,8) then
+							if gn_state_n=to_signed(0,8) then
+								gain_n <= to_unsigned(1,12);
+							else
+								gain_n <= gain-1;
+							end if;
+						else
+							gain_n <= gain+1;
+						end if;
+					end if;
+				end if;
+			else
+				if (b1_cnt/=to_unsigned(0,21)) then
+					b1_cnt<=b1_cnt-1;
+				else
+					if b1_f='0' then
+						b1_f<='1';
+					end if;
+				end if;
+			end if;
 			--btn0 (onboard)
 			vs_btn_sh(3)<=btn(0);
 			vs_btn_sh(2)<=vs_btn_sh(3);
 			vs_btn_sh(1)<=vs_btn_sh(2);
 			vs_btn_sh(0)<=vs_btn_sh(1); 
-			--Amplitude-scale--
-			if vs_btn_sh(7)='0' and vs_btn_sh(6)='1' then
-				gn_state_n <= gn_state+1;
-				if gn_state<to_signed(0,8) then
-					if gn_state_n=to_signed(0,8) then
-						gain_n <= to_unsigned(1,12);
-					else
-						gain_n <= gain-1;
-					end if;
+			if (vs_btn_sh(0)='1') then
+				if b0_cnt/=to_unsigned(300000,21) then
+					b0_cnt <= b0_cnt + 1;
 				else
-					gain_n <= gain+1;
+					if b0_f='1' then
+						b0_f<='0';
+						gn_state_n <= gn_state - 1;
+						if gn_state>to_signed(0,8) then
+							if gn_state_n=to_signed(0,8) then
+								gain_n <= to_unsigned(1,12);
+							else 
+								gain_n <= gain-1;
+							end if;
+						else
+							gain_n <= gain+1;
+						end if;
+					end if;
 				end if;
-			end if;
-			if vs_btn_sh(0)='0' and vs_btn_sh(1)='1' then
-				gn_state_n <= gn_state - 1;
-				if gn_state>to_signed(0,8) then
-					if gn_state_n=to_signed(0,8) then
-						gain_n <= to_unsigned(1,12);
-					else 
-						gain_n <= gain-1;
-					end if;
+			else
+				if (b0_cnt/=to_unsigned(0,21)) then
+					b0_cnt<=b0_cnt-1;
 				else
-					gain_n <= gain+1;
+					if b0_f='0' then
+						b0_f<='1';
+					end if;
 				end if;
 			end if;
 			if frame='1' then

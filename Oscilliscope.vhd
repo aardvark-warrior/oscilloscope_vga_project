@@ -902,7 +902,7 @@ begin
 				scaled_trig <= grid_top+grid_height - gain*lvl/ratio;
 				scaled_sig <= grid_top+grid_height- gain*unsigned(dataa(11 downto 0))/ratio;
 			else
-				scaled_trig <= grid_top+grid_height - lvl/ratio/gain;	
+				scaled_trig(11 downto 0) <= grid_top+grid_height - lvl/ratio/gain;	
 				scaled_sig(11 downto 0) <= grid_top+grid_height- unsigned(dataa(11 downto 0))/ratio/gain;
 			end if;
 			-- Draw Trigger

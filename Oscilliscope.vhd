@@ -711,7 +711,7 @@ begin
 				end if;
 			--In the same frame, index to RAM using VGA starting address + hcount
 			else
-				ram_idx <= std_logic_vector(signed(unsigned(read_addr)+hcount));
+				ram_idx(9 downto 0) <= std_logic_vector(signed(unsigned(read_addr)+hcount));
 				if vga_loc=to_unsigned(0,2) then
 					dataa <= dataa0;
 					ram_led(1 downto 0) <= b"00";

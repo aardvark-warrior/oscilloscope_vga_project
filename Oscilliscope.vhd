@@ -73,7 +73,7 @@ architecture arch of Oscilliscope is
 	signal rdy:  		std_logic;
 	signal out31: 		std_logic;
 	signal web: 		std_logic_vector(3 downto 0):= b"0000";
-	signal counter: 	unsigned(13 downto 0):=(0=>'1',others=>'0');		-- for generated square wave frequency
+	signal counter: 	unsigned(11 downto 0):=(0=>'1',others=>'0');		-- for generated square wave frequency
 	signal addr_a:		std_logic_vector(9 downto 0); 	-- driven by VGA hcount
 	signal dataa: 		std_logic_vector(35 downto 0); 	-- original scope reading from RAM ...
 	signal addrb: 		std_logic_vector(9 downto 0);
@@ -96,7 +96,7 @@ architecture arch of Oscilliscope is
 	signal vcount:   	unsigned(9 downto 0);
 	signal ram_idx:		std_logic_vector(19 downto 0);
 	signal grd_red:  	std_logic_vector(1 downto 0):=(others=>'0');  -- grid
-	signal grd_grn:  	std_logic_vector(1 downto 0):=(others=>'0');
+	signal grd_grn:  	std_logic_vector(1 downto 0):=(others=>'0');	
 	signal grd_blu:  	std_logic_vector(1 downto 0):=(others=>'0');
 	signal line_red: 	std_logic_vector(1 downto 0):=(others=>'0');  -- reading
 	signal line_grn: 	std_logic_vector(1 downto 0):=(others=>'0');
@@ -321,7 +321,7 @@ begin
 						--Trigger up/down (toggle='1') or Time-scale (toggle='0')
 						if toggle='1' and lvl<=to_unsigned(4095,12)-lvl_step then
 							lvl_n <= lvl + lvl_step;
-						elsif toggle='0' and t_scale < 5 then
+						elsif toggle='0' and t_scale < 7 then
 							t_scale_n <= t_scale + 1;
 						end if;
 					end if;
@@ -437,7 +437,7 @@ begin
 			end if;
 
 			------------------------------------------------------------
-			-- DO NOT TOUCH BELOW (Chris: ignore this. Add debounce pls)
+			-- DO NOT TOUCH BELOW
 			------------------------------------------------------------
 			--Up/Down shift--
 			--btn23
@@ -643,13 +643,13 @@ begin
 					elsif (wr_state=b"10") then
 						-- Save trigger address in the signal corresponding to the current RAM
 						if adc_loc = b"00" then
-							tr_addr0 <= std_logic_vector(unsigned(tr_addr-tr_h));
+							tr_addr0 <= std_logic_vector(unsigned(tr_addr)-tr_h);
 						elsif adc_loc = b"01" then
-							tr_addr1 <= std_logic_vector(unsigned(tr_addr-tr_h));
+							tr_addr1 <= std_logic_vector(unsigned(tr_addr)-tr_h);
 						elsif adc_loc = b"10" then
-							tr_addr2 <= std_logic_vector(unsigned(tr_addr-tr_h));
+							tr_addr2 <= std_logic_vector(unsigned(tr_addr)-tr_h);
 						else
-							tr_addr3 <= std_logic_vector(unsigned(tr_addr-tr_h));
+							tr_addr3 <= std_logic_vector(unsigned(tr_addr)-tr_h);
 						end if;
 					end if;
 					-- -- State 3: Read grid_width/2 + h_shift values after trigger detected
@@ -749,7 +749,7 @@ begin
 			counter <= counter + to_unsigned(1,11);
 			if (counter = "00000000000") then -- 1040 10000010000
 				out31 <= not out31;
-				counter <= b"00000000001";
+				counter <= (0=>'1',others=>'0');
 			end if;
 		end if;
 	end process;
@@ -897,13 +897,19 @@ begin
 	process(clkfx,grd_red,grd_blu,grd_grn,line_red,line_grn,line_blu)
     begin
         if rising_edge(clkfx) then
-			-- Scale Trigger line
-			scaled_trig <= grid_top+grid_height - gain*lvl/ratio;
+			-- Scale Trigger and Signal Using Gain-state and Gain
+			if gn_state>=to_signed(0,8) then
+				scaled_trig <= grid_top+grid_height - gain*lvl/ratio;
+				scaled_sig <= grid_top+grid_height- gain*unsigned(dataa(11 downto 0))/ratio;
+			else
+				scaled_trig <= grid_top+grid_height - lvl/ratio/gain;	
+				scaled_sig(11 downto 0) <= grid_top+grid_height- unsigned(dataa(11 downto 0))/ratio/gain;
+			end if;
 			-- Draw Trigger
 			if vcount>=grid_top and vcount<=grid_bottom and hcount>=grid_left and hcount<=grid_right and 
 				(vcount=grid_top or vcount=unsigned(signed(scaled_trig)+vshift) or vcount=grid_bottom or 
 				 hcount=grid_left or hcount=unsigned(signed(grid_left+tr_h)+hshift) or hcount=grid_right) then
-				trig_red<=b"10";
+				trig_red<=b"00";
 				trig_grn<=b"10";
 				trig_blu<=b"10";
 			else
@@ -925,16 +931,10 @@ begin
                 grd_grn<=b"00";
                 grd_blu<=b"00";
             end if;
-			-- Scale Signal
-			if gn_state>=to_signed(0,8) then
-				scaled_sig <= grid_top+grid_height- gain*unsigned(dataa(11 downto 0))/ratio;
-			else
-				scaled_sig(11 downto 0) <= grid_top+grid_height- unsigned(dataa(11 downto 0))/ratio/gain;
-			end if;
 			-- Draw signal
             if init='0' and 
 				vcount>=grid_top and vcount<=grid_bottom and hcount>=grid_left and hcount<=grid_right and
-				vcount=unsigned(signed(scaled_sig)+vshift) then	--unsigned(dataa(11 downto 0))/(4096/grid-height)
+				vcount=unsigned(signed(scaled_sig)+vshift) then	
 				line_red<=b"00";            
 				line_grn<=b"11";
 				line_blu<=b"00";

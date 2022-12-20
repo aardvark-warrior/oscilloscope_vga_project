@@ -25,6 +25,9 @@
 - `Oscilloscope` in Oscilloscope.xdc
 
 Problems
+clock domain crossing with buttons (identify which buttons that change signals that both adc and vga care about--on RHS of assignment)
+
+
 left and right trigger concept needs work
 why compressing and stretching signal distorts reading??
 make trig lvl cursor follow v_shift and gain

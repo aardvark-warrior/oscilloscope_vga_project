@@ -73,7 +73,7 @@ architecture arch of Oscilliscope is
 	signal rdy:  		std_logic;
 	signal out31: 		std_logic;
 	signal web: 		std_logic_vector(3 downto 0):= b"0000";
-	signal counter: 	unsigned(11 downto 0):=(0=>'1',others=>'0');		-- for generated square wave frequency
+	signal counter: 	unsigned(12 downto 0):=(0=>'1',others=>'0');		-- for generated square wave frequency
 	signal addr_a:		std_logic_vector(9 downto 0); 	-- driven by VGA hcount
 	signal dataa: 		std_logic_vector(35 downto 0); 	-- original scope reading from RAM ...
 	signal addrb: 		std_logic_vector(9 downto 0);
@@ -184,7 +184,7 @@ begin
 	cmt:  Oscilliscope_cmt port map(clk_i=>clk,clk_o=>fclk);
 	adc:  Oscilliscope_adc port map(clk=>fclk,vaux5_n=>vaux5_n,vaux5_p=>vaux5_p,rdy=>rdy,data=>datab(11 downto 0));
 	ram0: Oscilliscope_ram port map(
-		clka_i=>clk,  		-- port A output to VGA
+		clka_i=>clkfx,  		-- port A output to VGA
 		wea_i=>'0',
 		addra_i=>addr_a, 	-- 10 bits
 		dataa_i=>(others=>'0'),
@@ -196,7 +196,7 @@ begin
 		datab_o=>open 
     );
 	ram1: Oscilliscope_ram port map(
-		clka_i=>clk,  		
+		clka_i=>clkfx,  		
 		wea_i=>'0',
 		addra_i=>addr_a, 	
 		dataa_i=>(others=>'0'),
@@ -208,7 +208,7 @@ begin
 		datab_o=>open 
     );
 	ram2: Oscilliscope_ram port map(
-		clka_i=>clk,  		
+		clka_i=>clkfx,  		
 		wea_i=>'0',
 		addra_i=>addr_a, 	
 		dataa_i=>(others=>'0'),
@@ -220,7 +220,7 @@ begin
 		datab_o=>open 
     );
 	ram3: Oscilliscope_ram port map(
-		clka_i=>clk,  		
+		clka_i=>clkfx,  		
 		wea_i=>'0',
 		addra_i=>addr_a, 	
 		dataa_i=>(others=>'0'),
@@ -234,17 +234,6 @@ begin
 
 	------------------------------------------------------------------
 	-- Button Metastability Shift
-		-- TODO: Debounce
-			-- Ignore btn(1) btn(0) to start (on board buttons don't bounce much)
-			-- Start with btn23/22 (up/down shift signal) and test to make sure working
-			-- Then btn8/7 (toggle button modes) and test to make sure working
-			-- Finally, do btn17/16 and btn20/19 and test to make sure working
-				-- these are prob most complicated because of nested logic
-				-- Big idea: 
-					-- when toggle='1': btn17/16 moves trigger level up and down
-					--					btn20/19 moves trigger left and right
-					-- when toggle='0': btn17/16 compresses/stretches signal time scale
-					--					btn20/19 moves signal left and right
 		-- Basic idea:
 			-- Vertical stretch   -> multiply/divide dataa (before comparing to vcount)
 			-- Vertical shift 	  -> add/subtract dataa
@@ -257,8 +246,8 @@ begin
 	pio6  <= '1'; -- btns pio8,7
 	process(clkfx)
 	begin
-		if rising_edge(clkfx) then
-			--Toggle b8,7 and b20,19 functions			
+		if rising_edge(fclk) then
+			--Toggle b8,7 and b20,19 functions
 			--btn8
 			-- Metastability shift register
 			tog_btn_sh(4)<=pio8;
@@ -571,21 +560,25 @@ begin
 	------------------------------------------------------------------
 	-- ADC Write Buffer Chain
 	------------------------------------------------------------------
+
+	adc_loc_n <= vga_loc+1 when adc_loc=vga_loc-1 else
+				adc_loc+1;
 	led <= ram_led;
 	skip_cnt_n <= t_scale - 1;
-	process(fclk,adc_loc,vga_loc) 
+	process(fclk) 
 	begin
 		-- Select next ram in buffer chain, skipping vga_loc
-		if adc_loc=vga_loc-1 then
-			adc_loc_n <= vga_loc+1;
-		else
-			adc_loc_n <= adc_loc+1;
-		end if;
+		-- if adc_loc=vga_loc-1 then
+		-- 	adc_loc_n <= vga_loc+1;
+		-- else
+		-- 	adc_loc_n <= adc_loc+1;
+		-- end if;
 
 		if rising_edge(fclk) then -- fclk from cmt 52 MHz for ADC; rdy is synced with fclk
 			if rdy='1' then
 				-- Transition from State 3->1: Save last-used RAM, Move to next RAM, Reset addrb and detected flag
-				if (addrb = std_logic_vector(unsigned(tr_addr) - tr_h))  and detected = '1' then
+				if (wr_state=b"11") then -- and detected = '1' then
+					wr_state<=b"00";
 					prev_adc <= adc_loc;
 					adc_loc <= adc_loc_n;
 					addrb <= b"00_0000_0000";
@@ -641,6 +634,9 @@ begin
 						end if;
 					-- ADC State 3
 					elsif (wr_state=b"10") then
+						if (addrb = std_logic_vector(unsigned(tr_addr) - tr_h)) then
+							wr_state<=b"11";
+						end if;
 						-- Save trigger address in the signal corresponding to the current RAM
 						if adc_loc = b"00" then
 							tr_addr0 <= std_logic_vector(unsigned(tr_addr)-tr_h);
@@ -652,32 +648,6 @@ begin
 							tr_addr3 <= std_logic_vector(unsigned(tr_addr)-tr_h);
 						end if;
 					end if;
-					-- -- State 3: Read grid_width/2 + h_shift values after trigger detected
-					-- if (detected = '1') then
-					-- 	if adc_loc = b"00" then
-					-- 		tr_addr0 <= tr_addr;
-					-- 	elsif adc_loc = b"01" then
-					-- 		tr_addr1 <= tr_addr;
-					-- 	elsif adc_loc = b"10" then
-					-- 		tr_addr2 <= tr_addr;
-					-- 	else
-					-- 		tr_addr3 <= tr_addr;
-					-- 	end if;
-					-- -- State 2: Waiting for trigger (after reading 240 + h_shift initial values)
-					-- elsif (signed(addrb) >= signed(grid_width/2) + tr_h) then		
-					-- 	if (signed(addrb) = signed(grid_width/2) + tr_h) then		
-					-- 		pretrig <= datab(11 downto 0);
-					-- 	end if;
-					-- 	-- rising edge trigger
-					-- 	if (unsigned(datab(11 downto 0)) >= lvl) and 
-					-- 		(unsigned(datab(11 downto 0)) > unsigned(pretrig)) then	
-					-- 		init <= '0';
-					-- 		detected <= '1';
-					-- 		tr_addr <= addrb;
-					-- 	end if;
-					-- end if;
-					-- -- State 1: Just read grid_width/2 + h_shift values (common in all 3 states, expect for when changing block RAMs)
-					-- addrb <= std_logic_vector(unsigned(addrb) + to_unsigned(1,10));
 				end if;
 			else
 				web <= b"0000";
@@ -688,12 +658,16 @@ begin
 	------------------------------------------------------------------
 	-- VGA read from Buffer Chain 
 	------------------------------------------------------------------
-	addr_a <= ram_idx(9 downto 0); 
-	process(clkfx,prev_adc,tr_addr0,tr_addr1,tr_addr2,tr_addr3) -- clkfx from cmt2 25.2 MHz for VGA
+	addr_a <= ram_idx(9 downto 0);
+	--Set next vga_loc to last RAM used by ADC
+	vga_loc_n <= prev_adc;
+	--Set addr to start reading at for next RAM
+	-- read_addr_n <= tr_addr0 when prev_adc=b"00" else
+	-- 				tr_addr1 when prev_adc=b"01" else
+	-- 				tr_addr2 when prev_adc=b"10" else
+	-- 				tr_addr3 when prev_adc=b"11";
+	process(clkfx) -- clkfx from cmt2 25.2 MHz for VGA
 	begin
-		--Set next vga_loc to last RAM used by ADC
-		vga_loc_n <= prev_adc;
-		--Set addr to start reading at for next RAM
 		if prev_adc=b"00" then
 			read_addr_n <= tr_addr0;
 		elsif prev_adc=b"01" then
@@ -711,12 +685,16 @@ begin
 				read_addr <= read_addr_n;
 				if vga_loc_n=to_unsigned(0,2) then
 					dataa <= dataa0;
+					ram_led(1 downto 0) <= b"00";
 				elsif vga_loc_n<=to_unsigned(1,2) then
 					dataa <= dataa1;
+					ram_led(1 downto 0) <= b"00";
 				elsif vga_loc_n<=to_unsigned(2,2) then
 					dataa <= dataa2;
+					ram_led(1 downto 0) <= b"00";
 				else
 					dataa <= dataa3;
+					ram_led(1 downto 0) <= b"00";
 				end if;
 			--In the same frame, index to RAM using VGA starting address + hcount
 			else
@@ -932,7 +910,7 @@ begin
                 grd_blu<=b"00";
             end if;
 			-- Draw signal
-            if init='0' and 
+            if init='0' and
 				vcount>=grid_top and vcount<=grid_bottom and hcount>=grid_left and hcount<=grid_right and
 				vcount=unsigned(signed(scaled_sig)+vshift) then	
 				line_red<=b"00";            

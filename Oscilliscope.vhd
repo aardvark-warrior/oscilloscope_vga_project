@@ -1,3 +1,37 @@
+---------------------------------------------------------------------------
+-- Company: Johns Hopkins University ECE
+-- Engineer: Arthur Wang, Christian Kanzki
+
+-- Create Date: December 10, 2022
+-- Module Name: Top-level Module
+-- Project Name: Oscilloscope with VGA Display
+-- Target Devices: Xilinx Cmod S7: Breadboardable Spartan-7 FPGA Module
+-- Tool Versions: Vivado 2022.1
+-- Description:
+--		A self-contained 0 - 3.3 V normal, adjustable trigger oscilloscope 
+--		using on-board ADC to sample 12-bit readings at 1 MHz through 
+--		analog input pins and writes data to 4 block RAM buffer chain 
+--		(2^10 addresses). 
+--		Data is read by VGA module at 25.2 MHz and output to
+-- 		60 Hz display screen through VGA pmod interface. 
+--		Two on-board buttons and eight external buttons connected to digital
+--		I/O pins control the oscilloscope trigger and VGA output.
+-- Features:
+-- 		- 4 block RAM buffer ring (ADC writes in circle, VGA reads most recently-used)
+--		- Adjustable trigger (vertical and horizontal)
+--		- Adjustable, linear gain
+--		- Adjustable, time scale 
+--		- Vertical signal shift
+--		- Horizontal signal shift
+-- Dependencies:
+--		Oscilloscope_adc.vhd
+--		Oscilloscope_cmt.vhd
+--		Oscilloscope_ram.vhd
+--		Oscilloscope.xdc
+--
+-- Additional Comments:
+--
+---------------------------------------------------------------------------
 library IEEE;
 use IEEE.std_logic_1164.all;
 use IEEE.numeric_std.all;
@@ -387,8 +421,6 @@ begin
 					end if;
 				end if;
 			end if;
-
-
 			--btn19
 			lr_btn_sh(3)<=pio19;
 			lr_btn_sh(2)<=lr_btn_sh(3);
@@ -424,10 +456,6 @@ begin
 					hshift<=hshift_n;
 				end if;
 			end if;
-
-			------------------------------------------------------------
-			-- DO NOT TOUCH BELOW
-			------------------------------------------------------------
 			--Up/Down shift--
 			--btn23
 			ud_btn_sh(4)<=pio23; 
@@ -454,7 +482,6 @@ begin
 					end if;
 				end if;
 			end if;
-			
 			--btn22
 			ud_btn_sh(3)<=pio22; 
 			ud_btn_sh(2)<=ud_btn_sh(3);
@@ -484,7 +511,6 @@ begin
 			if frame='1' then
 				vshift<=vshift_n;
 			end if;
-
 			--Amplitude-scale--
 			--btn1 (onboard)
 			vs_btn_sh(4)<=btn(1); 
@@ -560,7 +586,6 @@ begin
 	------------------------------------------------------------------
 	-- ADC Write Buffer Chain
 	------------------------------------------------------------------
-
 	adc_loc_n <= vga_loc+1 when adc_loc=vga_loc-1 else
 				adc_loc+1;
 	led <= ram_led;
@@ -654,7 +679,6 @@ begin
 			end if;
 		end if;
 	end process;
-
 	------------------------------------------------------------------
 	-- VGA read from Buffer Chain 
 	------------------------------------------------------------------
@@ -715,7 +739,6 @@ begin
 			end if;
 		end if;
 	end process;
-
 	------------------------------------------------------------------
 	-- Generate test signal: square wave
 	------------------------------------------------------------------
@@ -811,7 +834,6 @@ begin
 		-- Clock Feedback Input Port:
 		CLKFBIN=>clkfb  -- 1-bit input: Feedback clock
 	);
-
 	------------------------------------------------------------------
 	-- VGA display counters
 	--
@@ -866,12 +888,10 @@ begin
 			end if;
 		end if;
 	end process;
-	
     ------------------------------------------------------------------
 	-- Output Trace, Trigger, Grid to VGA
 	------------------------------------------------------------------
 	ratio <= 4096/grid_height;
-	
 	process(clkfx,grd_red,grd_blu,grd_grn,line_red,line_grn,line_blu)
     begin
         if rising_edge(clkfx) then
@@ -940,7 +960,6 @@ begin
 			screen_blu <= trig_blu;
 		end if;
     end process;
-
 	------------------------------------------------------------------
 	-- VGA output with blanking
 	------------------------------------------------------------------

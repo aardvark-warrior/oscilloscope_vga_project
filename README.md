@@ -5,7 +5,7 @@ A self-contained 0 - 3.3 V rising-edge, normal, adjustable trigger oscilloscope 
 
 ### **Features** <br />
 - Static grid (display)
-- Buffering (4-block ring)
+- Buffering (4-block chain)
 - Adjustable, normal trigger (vertical and horizontal)
 - Vertical signal display adjustment
 - Horizontal signal display adjustment

@@ -1,57 +1,43 @@
-# FPGA Synthesis Lab Final Project
+# Oscilloscope with VGA Display 
 
-## Oscilloscope with VGA Display 
+## **I. Description** <br />
+A self-contained 0 - 3.3 V rising-edge, normal, adjustable trigger oscilloscope with VGA display on [Xilinx Cmod S7: Breadboardable Spartan-7 FPGA Module](https://www.xilinx.com/products/boards-and-kits/1-w51rey.html) written in VHDL.
 
-*using VHDL on Xilinx Cmod S7*
+### **Features** <br />
+- Static grid (display)
+- Buffering (4-block ring)
+- Adjustable, normal trigger (vertical and horizontal)
+- Vertical signal display adjustment
+- Horizontal signal display adjustment
+- Time base adjustment
+- Amplitude/gain adjustment
 
-### **Files**
+## **II. Design** <br />
+### **1. Oscilloscope** <br />
+Oscilloscope uses on-board ADC to sample through analog input pins at 1 MHz and writes 12-bit data to 4-block RAM buffer ring. Each block RAM can hold 1024 readings. Uses 52 MHz clock from CMT1.
 
-**Top level:** 
+### **2. VGA** <br />
+VGA module draws signal (in green) over 8x4 static grid (in grey) the covers 640x256 pixels in a 640x480 screen. Adjustable trigger shown as cross (in white), spans the entire grid and follows shifts/scales of signal display. Uses 25.2 MHz clock from CMT2; chosen to account for front-porch, back-porch, and sync delays of 640x480 screen to achieve 60 Hz.
 
+### **3. RAM buffer ring** <br />
+Block RAM buffer chain uses 4-block design to prevent ping-ponging. ADC writes to buffer chain in a circle, skipping the RAM block used by the VGA. This design is resilient against cases where ADC and VGA operate at different rates on the same RAM block, causing data to be overwritten mid-read. VGA always reads from RAM block most recently-used by ADC to get newest data.
+
+
+
+
+## **III. Files** <br />
+**Top level:** <br />
 - `Ocilloscope` in Oscilloscope.vhd
 
-**Components:**
+**Dependencies:** <br />
+- `Oscilloscope_gui` in Oscilloscope_gui.vhd: gui to interface with MATLAB oscope *(currently unused)*
 
-- `Oscilloscope_gui` in Oscilloscope_gui.vhd: gui to interface with MATLAB oscope
+- `Oscilloscope_adc` in Oscilloscope_adc.vhd: Analog/Digital Converter 
 
-- `Oscilloscope_adc` in Oscilloscope_adc.vhd: Analog/Digital Converter implementation
+- `Oscilloscope_ram` in Oscilloscope_ram.vhd: Block RAM 
 
-- `Oscilloscope_ram` in Oscilloscope_ram.vhd: RAM implementation
+- `Oscilloscope_cmt` in Oscilloscope_cmt.vhd: Clock Management Tile (used for RAM and VGA in top level)
 
-- `Oscilloscope_cmt` in Oscilloscope_cmt.vhd: Clock Management Tile for RAM
-
-**Constraints:**
-
+**Constraints:** <br />
 - `Oscilloscope` in Oscilloscope.xdc
 
-Problems
-clock domain crossing with buttons (identify which buttons that change signals that both adc and vga care about--on RHS of assignment)
-
-
-left and right trigger concept needs work
-why compressing and stretching signal distorts reading??
-make trig lvl cursor follow v_shift and gain
-
-12/18 00:15
-/improve trigger by tracing before and after values
-/add horizontal scale
-Need 2 mors buttons to move signal horizontally
-button debounce
-
-### **12/15/2022 15:28**
-gn_state| ... | -3 | -2 | -1 |  0 |  1 |  2 |  3 | ...
-gain    | ... | /3 | /2 | /2 | *1 | *2 | *3 | *4 | ...
-
-### **12/14/2022 10:57 AM**
-Lines 108-116: signals for scaling/shifting
-Lines 189+   : TODOs and description in section titled "Button Metastability Logic"
-Lines 475-479: skeleton implementation of [v/h]shifting and scaling
-
-### **12/13/2022 1:00 AM**
-Worked on Buffer Chain 2.0 just now. Made two signals to track location of ADC and VGA in the buffer chain. Implemented two processes with two-segment style, `process(frame,adc_loc)` and `process(rdy,vga_loc)`, to update `vga_loc`, `vga_loc_next`, `adc_loc`, `adc_loc_next`, and to switch ram blocks that VGA and ADC use.
-
-My current understanding is that is follows:
-
-- Read: We let all ram blocks share `addra_i=>addr_a`; to switch ram block for VGA, we just change what `dataa_` (used by VGA) is driven by: `data0`, `data1`, `data2`, or `data3` (each is the output of a different ram block).
-
-- Write: We let all ram blocks share `addrb_i=>addrb` and `datab_i=>datab_`; to switch ram block for ADC, we just toggle the bits in `web` so that only one-bit is ever hooked up to `rdy`: `web(0)`, `web(1)`, `web(2)`, `web(3)` (each bit controls write-enable for a different ram block).

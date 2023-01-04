@@ -1,6 +1,6 @@
 # Oscilloscope with VGA Display 
 
-## **I. Description** <br />
+## **Description** <br />
 A self-contained 0 - 3.3 V rising-edge, normal, adjustable trigger oscilloscope with VGA display on [Xilinx Cmod S7: Breadboardable Spartan-7 FPGA Module](https://www.xilinx.com/products/boards-and-kits/1-w51rey.html) written in VHDL.
 
 ### **Features** <br />
@@ -12,7 +12,7 @@ A self-contained 0 - 3.3 V rising-edge, normal, adjustable trigger oscilloscope 
 - Time base adjustment
 - Amplitude/gain adjustment
 
-## **II. Design** <br />
+## **Design** <br />
 ### **1. Oscilloscope** <br />
 Oscilloscope uses on-board ADC to sample through analog input pins at 1 MHz and writes 12-bit data to 4-block RAM buffer ring. Each block RAM can hold 1024 readings. Uses 52 MHz clock from CMT1.
 
@@ -22,10 +22,7 @@ VGA module draws signal (in green) over 8x4 static grid (in grey) the covers 640
 ### **3. RAM buffer ring** <br />
 Block RAM buffer chain uses 4-block design to prevent ping-ponging. ADC writes to buffer chain in a circle, skipping the RAM block used by the VGA. This design is resilient against cases where ADC and VGA operate at different rates on the same RAM block, causing data to be overwritten mid-read. VGA always reads from RAM block most recently-used by ADC to get newest data.
 
-
-
-
-## **III. Files** <br />
+## **Files** <br />
 **Top level:** <br />
 - `Ocilloscope` in Oscilloscope.vhd
 
